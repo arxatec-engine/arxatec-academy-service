@@ -1,0 +1,36 @@
+// ---------------------------------------------------------------------------
+// Progreso — inscripciones y avance por lección (fase 11)
+// ---------------------------------------------------------------------------
+
+model enrollments {
+  id             String    @id @default(cuid())
+  user_id        String
+  course_id      String
+  started_at     DateTime  @default(now())
+  completed_at   DateTime?
+  last_lesson_id String?
+
+  user        users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  course      courses  @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  last_lesson lessons? @relation(fields: [last_lesson_id], references: [id], onDelete: SetNull)
+
+  @@unique([user_id, course_id])
+  @@index([user_id, started_at])
+  @@index([course_id])
+  @@index([last_lesson_id])
+}
+
+model lesson_progress {
+  id                    String    @id @default(cuid())
+  user_id               String
+  lesson_id             String
+  completed_at          DateTime?
+  last_position_seconds Int       @default(0)
+  updated_at            DateTime  @updatedAt
+
+  user   users   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  lesson lessons @relation(fields: [lesson_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, lesson_id])
+  @@index([lesson_id])
+}

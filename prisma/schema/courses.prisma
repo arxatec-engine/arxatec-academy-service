@@ -1,0 +1,69 @@
+model courses {
+  id                String        @id @default(cuid())
+  slug              String        @unique @db.VarChar(160)
+  title             String        @db.VarChar(140)
+  short_description String        @db.VarChar(140)
+  long_description  String
+  topic             course_topic
+  level             course_level
+  cover_image_url   String?
+  status            course_status @default(DRAFT)
+  catalog_order     Int
+  published_at      DateTime?
+  created_at        DateTime      @default(now())
+  updated_at        DateTime      @updatedAt
+
+  lessons     lessons[]
+  enrollments enrollments[]
+
+  @@index([status, catalog_order])
+  @@index([topic])
+  @@index([level])
+}
+
+model lessons {
+  id                 String          @id @default(cuid())
+  course_id          String
+  slug               String          @db.VarChar(160)
+  title              String          @db.VarChar(160)
+  description        String
+  type               lesson_type
+  position           Int
+  is_free_sample     Boolean         @default(false)
+  status             lesson_status   @default(DRAFT)
+  video_provider     video_provider?
+  video_external_id  String?         @db.VarChar(64)
+  duration_seconds   Int?
+  article_body       String?
+  article_word_count Int?
+  reading_minutes    Int?
+  transcript         String?
+  created_at         DateTime        @default(now())
+  updated_at         DateTime        @updatedAt
+
+  course          courses            @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  resources       lesson_resources[]
+  lesson_progress lesson_progress[]
+  enrollments     enrollments[]
+  comments        comments[]
+
+  @@unique([course_id, slug])
+  @@unique([course_id, position])
+  @@index([course_id, status])
+}
+
+model lesson_resources {
+  id         String   @id @default(cuid())
+  lesson_id  String
+  title      String   @db.VarChar(160)
+  file_url   String
+  mime_type  String   @db.VarChar(128)
+  size_bytes Int
+  position   Int
+  created_at DateTime @default(now())
+
+  lesson lessons @relation(fields: [lesson_id], references: [id], onDelete: Cascade)
+
+  @@unique([lesson_id, position])
+  @@index([lesson_id])
+}

@@ -1,0 +1,84 @@
+// ---------------------------------------------------------------------------
+// Usuarios
+// ---------------------------------------------------------------------------
+
+enum user_role {
+  STUDENT
+  ADMIN
+}
+
+enum user_city {
+  LIMA
+  AREQUIPA
+  TRUJILLO
+  OTHER
+}
+
+// ---------------------------------------------------------------------------
+// Autenticación
+// ---------------------------------------------------------------------------
+
+enum auth_provider {
+  PASSWORD
+  GOOGLE
+}
+
+enum auth_token_type {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+  OAUTH_EXCHANGE
+}
+
+enum oauth_provider {
+  GOOGLE
+}
+
+// ---------------------------------------------------------------------------
+// Cursos
+// ---------------------------------------------------------------------------
+
+enum course_topic {
+  FIRST_STEPS
+  LEGAL_ENGINEERING
+  APPLIED_AI
+  ARXATEC_PRODUCT
+}
+
+enum course_level {
+  INTRODUCTORY
+  INTERMEDIATE
+}
+
+enum course_status {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+// ---------------------------------------------------------------------------
+// Lecciones
+// ---------------------------------------------------------------------------
+
+enum lesson_type {
+  VIDEO
+  ARTICLE
+}
+
+enum lesson_status {
+  DRAFT
+  PUBLISHED
+}
+
+enum video_provider {
+  VIMEO
+}
+
+// ---------------------------------------------------------------------------
+// Comentarios
+// ---------------------------------------------------------------------------
+
+enum comment_status {
+  VISIBLE
+  HIDDEN
+  DELETED
+}

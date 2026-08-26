@@ -1,0 +1,38 @@
+// ---------------------------------------------------------------------------
+// Comentarios — hilos de una lección y reportes (fase 12)
+// ---------------------------------------------------------------------------
+
+model comments {
+  id         String         @id @default(cuid())
+  lesson_id  String
+  user_id    String?
+  parent_id  String?
+  body       String
+  status     comment_status @default(VISIBLE)
+  created_at DateTime       @default(now())
+  updated_at DateTime       @updatedAt
+
+  lesson  lessons           @relation(fields: [lesson_id], references: [id], onDelete: Cascade)
+  user    users?            @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  parent  comments?         @relation("comment_replies", fields: [parent_id], references: [id], onDelete: Cascade)
+  replies comments[]        @relation("comment_replies")
+  reports comment_reports[]
+
+  @@index([lesson_id, status, created_at])
+  @@index([parent_id])
+  @@index([user_id])
+}
+
+model comment_reports {
+  id                  String   @id @default(cuid())
+  comment_id          String
+  reported_by_user_id String
+  reason              String?  @db.VarChar(280)
+  created_at          DateTime @default(now())
+
+  comment     comments @relation(fields: [comment_id], references: [id], onDelete: Cascade)
+  reported_by users    @relation(fields: [reported_by_user_id], references: [id], onDelete: Cascade)
+
+  @@unique([comment_id, reported_by_user_id])
+  @@index([reported_by_user_id])
+}

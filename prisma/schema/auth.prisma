@@ -1,0 +1,43 @@
+model auth_sessions {
+  id           String    @id @default(cuid())
+  user_id      String
+  remember_me  Boolean   @default(true)
+  expires_at   DateTime
+  last_used_at DateTime  @default(now())
+  revoked_at   DateTime?
+  user_agent   String?   @db.VarChar(512)
+  ip_address   String?   @db.VarChar(64)
+  created_at   DateTime  @default(now())
+
+  user users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([expires_at])
+}
+
+model auth_tokens {
+  id          String          @id @default(cuid())
+  user_id     String
+  type        auth_token_type
+  token_hash  String          @unique @db.VarChar(64)
+  expires_at  DateTime
+  consumed_at DateTime?
+  created_at  DateTime        @default(now())
+
+  user users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, type])
+}
+
+model oauth_accounts {
+  id                  String         @id @default(cuid())
+  user_id             String
+  provider            oauth_provider
+  provider_account_id String         @db.VarChar(255)
+  created_at          DateTime       @default(now())
+
+  user users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([provider, provider_account_id])
+  @@index([user_id])
+}

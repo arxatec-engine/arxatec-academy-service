@@ -1,0 +1,34 @@
+# Dependencias
+node_modules
+
+# Build
+dist
+*.tsbuildinfo
+
+# Prisma: cliente generado, no se edita ni se versiona
+src/generated
+
+# Entorno
+.env
+.env.*
+!.env.example
+
+# Almacenamiento local de archivos (STORAGE_DRIVER=local)
+# Anclado a la raiz: sin la barra inicial tambien ignoraria src/infrastructure/storage
+/storage
+
+# Logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Cobertura y tests
+coverage
+.jest-cache
+
+# Editor / SO
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store

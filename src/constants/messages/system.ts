@@ -1,0 +1,23 @@
+export const SystemMessages = {
+  env_invalid: 'La configuración del entorno no es válida',
+  ping: 'pong',
+  server_listening: 'Servidor escuchando',
+  server_shutdown_started: 'Apagado ordenado iniciado',
+  server_shutdown_finished: 'Apagado ordenado terminado',
+  server_shutdown_failed: 'Un recurso falló al cerrarse',
+  prisma_disconnected: 'Prisma desconectado',
+  seed_started: 'Semilla iniciada',
+  seed_forbidden_in_production: 'La semilla no se ejecuta con NODE_ENV=production',
+  seed_credentials_missing:
+    'Faltan las credenciales de la semilla: SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD, SEED_STUDENT_EMAIL y SEED_STUDENT_PASSWORD (la contraseña, de 8 caracteres o más)',
+  seed_user_created: 'Usuario de semilla listo',
+  seed_course_created: 'Curso de semilla listo',
+  seed_lesson_content_invalid:
+    'Una lección de la semilla no cumple la política de contenido: revisa src/seed/seed_courses.ts',
+  seed_finished: 'Semilla terminada',
+  seed_failed: 'La semilla falló',
+  email_sent: 'Correo enviado',
+  email_logged: 'Correo escrito en el log (transporte log)',
+  email_failed: 'El envío del correo falló y se continuó sin él',
+  unhandled_error: 'Error no controlado',
+} as const;

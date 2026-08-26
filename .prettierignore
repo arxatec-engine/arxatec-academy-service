@@ -1,0 +1,9 @@
+dist
+coverage
+node_modules
+src/generated
+prisma/migrations
+pnpm-lock.yaml
+
+# La documentacion se escribe a mano: prettier reflowaria tablas y citas archivo:linea
+*.md
