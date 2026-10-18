@@ -30,6 +30,7 @@ const CATALOG_COURSE_SELECT = {
 } as const;
 
 const COURSE_DETAIL_SELECT = {
+  teacher: { select: { full_name: true, biography: true, photo_url: true } },
   id: true,
   slug: true,
   title: true,
@@ -41,6 +42,7 @@ const COURSE_DETAIL_SELECT = {
 } as const;
 
 const LESSON_SUMMARY_SELECT = {
+  id: true,
   slug: true,
   title: true,
   description: true,
@@ -52,6 +54,7 @@ const LESSON_SUMMARY_SELECT = {
 } as const;
 
 const LESSON_LOCKED_SELECT = {
+  id: true,
   slug: true,
   title: true,
   description: true,
@@ -70,6 +73,7 @@ const LESSON_RESOURCE_SELECT = {
 } as const;
 
 const LESSON_UNLOCKED_SELECT = {
+  id: true,
   slug: true,
   title: true,
   description: true,

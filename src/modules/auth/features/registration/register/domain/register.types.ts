@@ -6,4 +6,6 @@ export interface RegisterCommand extends RegisterPayload {
   ip_address: string | null;
 }
 
-export type RegisterResult = ApiSession;
+export interface RegisterResult extends ApiSession {
+  verification_email_sent: boolean;
+}

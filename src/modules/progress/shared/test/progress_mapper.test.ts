@@ -48,6 +48,7 @@ describe('progress_mapper', () => {
     const api = toApiEnrollment(COURSE, ENROLLMENT, PROGRESS);
 
     expect(api).toEqual({
+      certificate_id: null,
       course: { slug: COURSE.slug, title: COURSE.title },
       started_at: '2026-07-01T10:00:00.000Z',
       completed_at: null,
@@ -69,6 +70,7 @@ describe('progress_mapper', () => {
 
   it('la tarjeta de "Continuar" lleva el contador y la siguiente lección', () => {
     expect(toApiMyCourseInProgress(COURSE, PROGRESS)).toEqual({
+      certificate_id: null,
       course: { slug: COURSE.slug, title: COURSE.title },
       completed_lessons: 2,
       lesson_count: 6,
@@ -84,6 +86,7 @@ describe('progress_mapper', () => {
         new Date('2026-07-03T00:00:00.000Z'),
       ),
     ).toEqual({
+      certificate_id: null,
       course: { slug: COURSE.slug, title: COURSE.title },
       lesson_count: 4,
       completed_at: '2026-07-03T00:00:00.000Z',

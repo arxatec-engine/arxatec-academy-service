@@ -13,10 +13,6 @@ export const updateProfileController = async (req: Request, res: Response): Prom
   const payload = updateProfileSchema.parse({
     user_id: authenticated_user.id,
     full_name: readBodyField(req.body, 'full_name'),
-    organization: readBodyField(req.body, 'organization'),
-    is_independent: readBodyField(req.body, 'is_independent'),
-    city: readBodyField(req.body, 'city'),
-    city_other: readBodyField(req.body, 'city_other'),
   });
   const result = await updateProfileService(payload);
 

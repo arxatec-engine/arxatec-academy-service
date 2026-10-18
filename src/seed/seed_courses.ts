@@ -24,6 +24,7 @@ export interface SeedLesson {
   is_free_sample: boolean;
   status: lesson_status;
   content: LessonContentDraft;
+  transcript?: string;
   resources: readonly SeedLessonResource[];
 }
 
@@ -40,16 +41,12 @@ export interface SeedCourse {
   lessons: readonly SeedLesson[];
 }
 
+// Videos públicos de muestra para probar el reproductor de YouTube en desarrollo.
 const video = (external_id: string, duration_seconds: number): LessonContentDraft => ({
   type: lesson_type.VIDEO,
-  video_provider: video_provider.VIMEO,
+  video_provider: video_provider.YOUTUBE,
   video_external_id: external_id,
   duration_seconds,
-});
-
-const article = (article_body: string): LessonContentDraft => ({
-  type: lesson_type.ARTICLE,
-  article_body,
 });
 
 const COSTO_OCULTO_BODY = [
@@ -84,6 +81,25 @@ const RIESGOS_REALES_BODY = [
   '<p>Documentos de identidad, historias clínicas, estados de cuenta y borradores de estrategia no viajan por aplicaciones de mensajería ni por correos personales. Si necesitas compartirlos, que sea por un enlace con caducidad y con registro de quién lo abrió.</p>',
 ].join('');
 
+interface VideoLessonSeed {
+  slug: string;
+  title: string;
+  description: string;
+  external_id: string;
+  duration_seconds: number;
+}
+
+const toVideoLessons = (lessons: readonly VideoLessonSeed[]): readonly SeedLesson[] =>
+  lessons.map((lesson) => ({
+    slug: lesson.slug,
+    title: lesson.title,
+    description: lesson.description,
+    is_free_sample: false,
+    status: lesson_status.PUBLISHED,
+    content: video(lesson.external_id, lesson.duration_seconds),
+    resources: [],
+  }));
+
 const FUNDAMENTOS_LESSONS: readonly SeedLesson[] = [
   {
     slug: 'que-es-legal-tech-y-que-no',
@@ -92,7 +108,7 @@ const FUNDAMENTOS_LESSONS: readonly SeedLesson[] = [
       'Separamos tres cosas que suelen ir revueltas: digitalizar papeles, ordenar el trabajo y automatizar decisiones. Con ejemplos de un estudio de tres abogados en Lima.',
     is_free_sample: true,
     status: lesson_status.PUBLISHED,
-    content: video('901000001', 480),
+    content: video('aqz-KE-bpKQ', 480),
     resources: [
       {
         title: 'Mapa de las tres capas',
@@ -117,7 +133,10 @@ const FUNDAMENTOS_LESSONS: readonly SeedLesson[] = [
       'Cuánto tiempo se pierde buscando la última versión de un escrito, y por qué el correo es el peor archivador que existe.',
     is_free_sample: false,
     status: lesson_status.PUBLISHED,
-    content: article(COSTO_OCULTO_BODY),
+    content: video('YE7VzlLtp-4', 600),
+    transcript: COSTO_OCULTO_BODY.replace(/<[^>]*>/g, '\n')
+      .replace(/\n+/g, '\n\n')
+      .trim(),
     resources: [],
   },
   {
@@ -127,7 +146,7 @@ const FUNDAMENTOS_LESSONS: readonly SeedLesson[] = [
       'Firma digital, notificaciones electrónicas, expediente judicial electrónico y buscadores de jurisprudencia: lo que ya es obligatorio y lo que aún es opcional.',
     is_free_sample: false,
     status: lesson_status.PUBLISHED,
-    content: video('901000003', 664),
+    content: video('R6MlUcmOul8', 664),
     resources: [
       {
         title: 'Tabla comparativa de las cuatro herramientas',
@@ -145,7 +164,7 @@ const FUNDAMENTOS_LESSONS: readonly SeedLesson[] = [
       'Un mismo expediente, dos formas de llevarlo. Qué cambia el día que el juzgado pide algo con plazo de 48 horas.',
     is_free_sample: false,
     status: lesson_status.PUBLISHED,
-    content: video('901000004', 540),
+    content: video('aqz-KE-bpKQ', 540),
     resources: [],
   },
   {
@@ -155,7 +174,10 @@ const FUNDAMENTOS_LESSONS: readonly SeedLesson[] = [
       'Qué exige la Ley de Protección de Datos Personales, qué preguntarle a un proveedor y qué no debe salir nunca de tu estudio.',
     is_free_sample: false,
     status: lesson_status.PUBLISHED,
-    content: article(RIESGOS_REALES_BODY),
+    content: video('YE7VzlLtp-4', 600),
+    transcript: RIESGOS_REALES_BODY.replace(/<[^>]*>/g, '\n')
+      .replace(/\n+/g, '\n\n')
+      .trim(),
     resources: [],
   },
   {
@@ -165,7 +187,7 @@ const FUNDAMENTOS_LESSONS: readonly SeedLesson[] = [
       'Un plan de cinco días para migrar tus casos activos sin parar de atender. Incluye plantilla de inventario descargable.',
     is_free_sample: false,
     status: lesson_status.PUBLISHED,
-    content: video('901000006', 720),
+    content: video('R6MlUcmOul8', 720),
     resources: [
       {
         title: 'Plantilla de inventario de casos',
@@ -176,26 +198,185 @@ const FUNDAMENTOS_LESSONS: readonly SeedLesson[] = [
       },
     ],
   },
+  ...toVideoLessons([
+    {
+      slug: 'diagnostico-digital-de-tu-estudio',
+      title: 'Diagnóstico digital de tu estudio',
+      description:
+        'Evalúa cómo entran los casos, dónde se guarda la información y qué tareas se repiten.',
+      external_id: 'aqz-KE-bpKQ',
+      duration_seconds: 600,
+    },
+    {
+      slug: 'mapear-el-recorrido-de-un-cliente',
+      title: 'Mapear el recorrido de un cliente',
+      description: 'Dibuja el recorrido desde la primera consulta hasta el cierre del expediente.',
+      external_id: 'YE7VzlLtp-4',
+      duration_seconds: 540,
+    },
+    {
+      slug: 'priorizar-problemas-antes-de-elegir-herramientas',
+      title: 'Priorizar problemas antes de elegir herramientas',
+      description: 'Ordena los problemas por frecuencia, tiempo perdido e impacto en la atención.',
+      external_id: 'R6MlUcmOul8',
+      duration_seconds: 660,
+    },
+    {
+      slug: 'estructura-de-carpetas-para-el-equipo',
+      title: 'Estructura de carpetas para el equipo',
+      description: 'Define una estructura de trabajo que cualquier integrante pueda entender.',
+      external_id: 'aqz-KE-bpKQ',
+      duration_seconds: 480,
+    },
+    {
+      slug: 'nombres-de-archivos-que-se-pueden-buscar',
+      title: 'Nombres de archivos que se pueden buscar',
+      description: 'Acuerda una convención con fecha, expediente y tipo de documento.',
+      external_id: 'YE7VzlLtp-4',
+      duration_seconds: 420,
+    },
+    {
+      slug: 'versiones-y-revision-de-documentos',
+      title: 'Versiones y revisión de documentos',
+      description: 'Organiza borradores, observaciones y aprobaciones sin perder el historial.',
+      external_id: 'R6MlUcmOul8',
+      duration_seconds: 720,
+    },
+    {
+      slug: 'digitalizar-y-encontrar-documentos-con-ocr',
+      title: 'Digitalizar y encontrar documentos con OCR',
+      description: 'Prepara un archivo de práctica y comprueba qué texto reconoce el escaneo.',
+      external_id: 'aqz-KE-bpKQ',
+      duration_seconds: 600,
+    },
+    {
+      slug: 'crear-una-ficha-unica-del-cliente',
+      title: 'Crear una ficha única del cliente',
+      description: 'Reúne los datos de contacto y evita volver a pedir la misma información.',
+      external_id: 'YE7VzlLtp-4',
+      duration_seconds: 540,
+    },
+    {
+      slug: 'armar-la-linea-de-tiempo-del-expediente',
+      title: 'Armar la línea de tiempo del expediente',
+      description: 'Relaciona actuaciones, documentos y responsables en un mismo historial.',
+      external_id: 'R6MlUcmOul8',
+      duration_seconds: 660,
+    },
+    {
+      slug: 'tareas-y-responsables-sin-mensajes-sueltos',
+      title: 'Tareas y responsables sin mensajes sueltos',
+      description: 'Convierte acuerdos de una reunión en tareas con dueño y fecha de revisión.',
+      external_id: 'aqz-KE-bpKQ',
+      duration_seconds: 480,
+    },
+    {
+      slug: 'calendario-compartido-y-alertas',
+      title: 'Calendario compartido y alertas',
+      description: 'Configura recordatorios de práctica y revisa quién recibe cada aviso.',
+      external_id: 'YE7VzlLtp-4',
+      duration_seconds: 600,
+    },
+    {
+      slug: 'recibir-documentos-con-un-formulario',
+      title: 'Recibir documentos con un formulario',
+      description: 'Diseña una solicitud de información breve, clara y fácil de completar.',
+      external_id: 'R6MlUcmOul8',
+      duration_seconds: 720,
+    },
+    {
+      slug: 'introduccion-a-las-plantillas-de-escritos',
+      title: 'Introducción a las plantillas de escritos',
+      description: 'Separa el texto reutilizable de los datos que cambian en cada caso.',
+      external_id: 'aqz-KE-bpKQ',
+      duration_seconds: 660,
+    },
+    {
+      slug: 'checklist-antes-de-compartir-un-documento',
+      title: 'Checklist antes de compartir un documento',
+      description: 'Revisa destinatario, versión, permisos y datos incluidos antes de enviarlo.',
+      external_id: 'YE7VzlLtp-4',
+      duration_seconds: 480,
+    },
+    {
+      slug: 'permisos-por-rol-en-un-estudio',
+      title: 'Permisos por rol en un estudio',
+      description:
+        'Practica con perfiles distintos y comprueba qué información puede ver cada uno.',
+      external_id: 'R6MlUcmOul8',
+      duration_seconds: 600,
+    },
+    {
+      slug: 'contrasenas-y-verificacion-en-dos-pasos',
+      title: 'Contraseñas y verificación en dos pasos',
+      description: 'Prepara cuentas de práctica con acceso individual y recuperación documentada.',
+      external_id: 'aqz-KE-bpKQ',
+      duration_seconds: 540,
+    },
+    {
+      slug: 'copias-de-seguridad-y-prueba-de-restauracion',
+      title: 'Copias de seguridad y prueba de restauración',
+      description: 'Crea una copia de un expediente ficticio y comprueba que puedes recuperarlo.',
+      external_id: 'YE7VzlLtp-4',
+      duration_seconds: 780,
+    },
+    {
+      slug: 'compartir-informacion-con-el-cliente',
+      title: 'Compartir información con el cliente',
+      description: 'Organiza las actualizaciones del caso y los enlaces a documentos de práctica.',
+      external_id: 'R6MlUcmOul8',
+      duration_seconds: 600,
+    },
+    {
+      slug: 'registrar-tiempo-y-costos-del-caso',
+      title: 'Registrar tiempo y costos del caso',
+      description:
+        'Lleva un registro sencillo de tareas y gastos para comparar tu trabajo semanal.',
+      external_id: 'aqz-KE-bpKQ',
+      duration_seconds: 660,
+    },
+    {
+      slug: 'medir-el-cambio-con-indicadores-simples',
+      title: 'Medir el cambio con indicadores simples',
+      description:
+        'Compara tiempos de búsqueda, tareas pendientes y errores antes y después del piloto.',
+      external_id: 'YE7VzlLtp-4',
+      duration_seconds: 540,
+    },
+    {
+      slug: 'preparar-un-piloto-con-tres-expedientes',
+      title: 'Preparar un piloto con tres expedientes',
+      description:
+        'Delimita una prueba pequeña con información ficticia y criterios de evaluación.',
+      external_id: 'R6MlUcmOul8',
+      duration_seconds: 720,
+    },
+    {
+      slug: 'acompanar-al-equipo-en-la-migracion',
+      title: 'Acompañar al equipo en la migración',
+      description:
+        'Planifica una sesión de práctica y recoge las dudas que aparecen al cambiar hábitos.',
+      external_id: 'aqz-KE-bpKQ',
+      duration_seconds: 600,
+    },
+    {
+      slug: 'documentar-el-proceso-del-estudio',
+      title: 'Documentar el proceso del estudio',
+      description:
+        'Escribe una guía breve para que una persona nueva pueda seguir el flujo de trabajo.',
+      external_id: 'YE7VzlLtp-4',
+      duration_seconds: 660,
+    },
+    {
+      slug: 'proyecto-final-tu-plan-de-mejora-digital',
+      title: 'Proyecto final: tu plan de mejora digital',
+      description:
+        'Reúne el diagnóstico, el piloto y los resultados en un plan para los próximos treinta días.',
+      external_id: 'R6MlUcmOul8',
+      duration_seconds: 900,
+    },
+  ]),
 ];
-
-interface VideoLessonSeed {
-  slug: string;
-  title: string;
-  description: string;
-  external_id: string;
-  duration_seconds: number;
-}
-
-const toVideoLessons = (lessons: readonly VideoLessonSeed[]): readonly SeedLesson[] =>
-  lessons.map((lesson) => ({
-    slug: lesson.slug,
-    title: lesson.title,
-    description: lesson.description,
-    is_free_sample: false,
-    status: lesson_status.PUBLISHED,
-    content: video(lesson.external_id, lesson.duration_seconds),
-    resources: [],
-  }));
 
 const AUTOMATIZA_LESSONS = toVideoLessons([
   {
@@ -203,7 +384,7 @@ const AUTOMATIZA_LESSONS = toVideoLessons([
     title: 'Inventario de tus escritos repetidos',
     description:
       'Antes de automatizar nada, hay que saber qué se repite. Sale una lista corta y sorprendente.',
-    external_id: '902000001',
+    external_id: 'aqz-KE-bpKQ',
     duration_seconds: 600,
   },
   {
@@ -211,7 +392,7 @@ const AUTOMATIZA_LESSONS = toVideoLessons([
     title: 'De un escrito a una plantilla',
     description:
       'Qué partes de un escrito son fijas, cuáles dependen del caso y cuáles no deberían existir.',
-    external_id: '902000002',
+    external_id: 'YE7VzlLtp-4',
     duration_seconds: 780,
   },
   {
@@ -219,7 +400,7 @@ const AUTOMATIZA_LESSONS = toVideoLessons([
     title: 'Variables que se llenan solas',
     description:
       'Datos del expediente, del cliente y del juzgado que entran una vez y salen en todos los documentos.',
-    external_id: '902000003',
+    external_id: 'R6MlUcmOul8',
     duration_seconds: 720,
   },
   {
@@ -227,7 +408,7 @@ const AUTOMATIZA_LESSONS = toVideoLessons([
     title: 'Cláusulas reutilizables sin copiar y pegar',
     description:
       'Una biblioteca de cláusulas con dueño y fecha de revisión, para dejar de heredar errores viejos.',
-    external_id: '902000004',
+    external_id: 'aqz-KE-bpKQ',
     duration_seconds: 660,
   },
   {
@@ -235,7 +416,7 @@ const AUTOMATIZA_LESSONS = toVideoLessons([
     title: 'Revisa lo automatizado antes de presentarlo',
     description:
       'La lista de comprobación que evita presentar un escrito con el nombre del cliente anterior.',
-    external_id: '902000005',
+    external_id: 'YE7VzlLtp-4',
     duration_seconds: 720,
   },
 ]);
@@ -246,7 +427,7 @@ const IA_APLICADA_LESSONS = toVideoLessons([
     title: 'Cómo redactar un buen pedido a un modelo',
     description:
       'Contexto, formato y límites: las tres cosas que cambian por completo la respuesta que recibes.',
-    external_id: '903000001',
+    external_id: 'YE7VzlLtp-4',
     duration_seconds: 720,
   },
   {
@@ -254,7 +435,7 @@ const IA_APLICADA_LESSONS = toVideoLessons([
     title: 'Resumir expedientes largos sin perder lo importante',
     description:
       'Cómo pedir un resumen que conserve fechas, plazos y montos, y cómo comprobar que no inventó nada.',
-    external_id: '903000002',
+    external_id: 'R6MlUcmOul8',
     duration_seconds: 780,
   },
   {
@@ -262,7 +443,7 @@ const IA_APLICADA_LESSONS = toVideoLessons([
     title: 'Comparar dos versiones de un contrato',
     description:
       'Diferencias reales frente a diferencias de redacción, y qué conviene revisar siempre a mano.',
-    external_id: '903000003',
+    external_id: 'aqz-KE-bpKQ',
     duration_seconds: 660,
   },
   {
@@ -270,7 +451,7 @@ const IA_APLICADA_LESSONS = toVideoLessons([
     title: 'Dónde los modelos se equivocan',
     description:
       'Jurisprudencia inventada, plazos mal contados y seguridad falsa: los tres errores que más caro cuestan.',
-    external_id: '903000004',
+    external_id: 'YE7VzlLtp-4',
     duration_seconds: 840,
   },
   {
@@ -278,7 +459,7 @@ const IA_APLICADA_LESSONS = toVideoLessons([
     title: 'Confidencialidad al usar modelos de lenguaje',
     description:
       'Qué se puede pegar en un chat, qué no, y qué preguntarle al proveedor antes de subir un expediente.',
-    external_id: '903000005',
+    external_id: 'R6MlUcmOul8',
     duration_seconds: 600,
   },
   {
@@ -286,7 +467,7 @@ const IA_APLICADA_LESSONS = toVideoLessons([
     title: 'Revisar un escrito con ayuda de un modelo',
     description:
       'Un flujo de revisión en dos pasadas: primero forma y estructura, después argumentación.',
-    external_id: '903000006',
+    external_id: 'aqz-KE-bpKQ',
     duration_seconds: 720,
   },
   {
@@ -294,7 +475,7 @@ const IA_APLICADA_LESSONS = toVideoLessons([
     title: 'Arma tu propio cuaderno de pedidos',
     description:
       'Guarda lo que te funcionó, con el caso donde lo usaste, y deja de escribir lo mismo cada vez.',
-    external_id: '903000007',
+    external_id: 'YE7VzlLtp-4',
     duration_seconds: 720,
   },
 ]);
@@ -305,7 +486,7 @@ const ORDENA_TU_ESTUDIO_LESSONS = toVideoLessons([
     title: 'El caso de principio a fin',
     description:
       'Seguimos un expediente real desde la consulta inicial hasta el archivo, con todo lo que pasa en medio.',
-    external_id: '904000001',
+    external_id: 'R6MlUcmOul8',
     duration_seconds: 600,
   },
   {
@@ -313,7 +494,7 @@ const ORDENA_TU_ESTUDIO_LESSONS = toVideoLessons([
     title: 'Expedientes y línea de tiempo',
     description:
       'Cómo se arma la historia del caso sola cuando cada actuación se registra donde corresponde.',
-    external_id: '904000002',
+    external_id: 'aqz-KE-bpKQ',
     duration_seconds: 660,
   },
   {
@@ -321,7 +502,7 @@ const ORDENA_TU_ESTUDIO_LESSONS = toVideoLessons([
     title: 'Calendario y plazos que no se pasan',
     description:
       'Plazos calculados desde la notificación, avisos con antelación y responsables con nombre.',
-    external_id: '904000003',
+    external_id: 'YE7VzlLtp-4',
     duration_seconds: 600,
   },
   {
@@ -329,7 +510,7 @@ const ORDENA_TU_ESTUDIO_LESSONS = toVideoLessons([
     title: 'Finanzas del estudio sin hojas sueltas',
     description:
       'Honorarios, gastos y cobranzas atados al caso que los generó, para saber qué caso deja qué.',
-    external_id: '904000004',
+    external_id: 'R6MlUcmOul8',
     duration_seconds: 660,
   },
 ]);
@@ -340,14 +521,14 @@ const CONTRATOS_COMO_SISTEMA_LESSONS = toVideoLessons([
     title: 'Un contrato es una estructura, no un texto',
     description:
       'Partes, objeto, obligaciones y salidas: si la estructura está clara, la redacción se vuelve mecánica.',
-    external_id: '905000001',
+    external_id: 'aqz-KE-bpKQ',
     duration_seconds: 720,
   },
   {
     slug: 'biblioteca-de-clausulas-con-dueno',
     title: 'Biblioteca de cláusulas con dueño',
     description: 'Cada cláusula con su responsable, su fecha de revisión y el riesgo que cubre.',
-    external_id: '905000002',
+    external_id: 'YE7VzlLtp-4',
     duration_seconds: 780,
   },
   {
@@ -355,7 +536,7 @@ const CONTRATOS_COMO_SISTEMA_LESSONS = toVideoLessons([
     title: 'Versionar sin perder el hilo',
     description:
       'Qué cambió, quién lo pidió y por qué: el historial que salva una negociación larga.',
-    external_id: '905000003',
+    external_id: 'R6MlUcmOul8',
     duration_seconds: 720,
   },
   {
@@ -363,7 +544,7 @@ const CONTRATOS_COMO_SISTEMA_LESSONS = toVideoLessons([
     title: 'Revisiones que se pueden repartir',
     description:
       'Cómo partir la revisión de un contrato entre dos personas sin pisarse ni duplicar trabajo.',
-    external_id: '905000004',
+    external_id: 'aqz-KE-bpKQ',
     duration_seconds: 780,
   },
   {
@@ -371,7 +552,7 @@ const CONTRATOS_COMO_SISTEMA_LESSONS = toVideoLessons([
     title: 'Del contrato firmado al seguimiento',
     description:
       'Vencimientos, renovaciones y obligaciones periódicas que alguien tiene que recordar.',
-    external_id: '905000005',
+    external_id: 'YE7VzlLtp-4',
     duration_seconds: 720,
   },
 ]);
@@ -382,14 +563,14 @@ const EXPEDIENTES_SIN_EXCEL_LESSONS = toVideoLessons([
     title: 'Por qué la hoja de cálculo se queda corta',
     description:
       'Funciona hasta que sois dos, hay veinte casos y nadie sabe cuál es la fila buena.',
-    external_id: '906000001',
+    external_id: 'YE7VzlLtp-4',
     duration_seconds: 660,
   },
   {
     slug: 'que-columnas-se-convierten-en-que-campos',
     title: 'Qué columnas se convierten en qué campos',
     description: 'La traducción de tu hoja actual al modelo de expedientes, columna por columna.',
-    external_id: '906000002',
+    external_id: 'R6MlUcmOul8',
     duration_seconds: 720,
   },
   {
@@ -397,7 +578,7 @@ const EXPEDIENTES_SIN_EXCEL_LESSONS = toVideoLessons([
     title: 'Migrar tus casos activos en una tarde',
     description:
       'Primero los que tienen plazo corriendo, después el resto. Con la hoja abierta al lado.',
-    external_id: '906000003',
+    external_id: 'aqz-KE-bpKQ',
     duration_seconds: 720,
   },
   {
@@ -405,7 +586,7 @@ const EXPEDIENTES_SIN_EXCEL_LESSONS = toVideoLessons([
     title: 'La línea de tiempo que se arma sola',
     description:
       'Cada actuación registrada donde toca, y el historial del caso aparece sin que nadie lo escriba.',
-    external_id: '906000004',
+    external_id: 'YE7VzlLtp-4',
     duration_seconds: 720,
   },
 ]);
@@ -417,7 +598,7 @@ export const buildSeedCourses = (): readonly SeedCourse[] => [
     short_description:
       'Qué es legal tech, qué problemas resuelve en un estudio pequeño y por dónde empezar sin gastar.',
     long_description:
-      'Seis lecciones para entender de qué hablan cuando hablan de legal tech, sin vender nada. Verás qué se automatiza de verdad en un estudio pequeño, cuánto cuesta empezar (poco) y qué riesgos reales existen con los datos de tus clientes. Al terminar sabrás decidir qué herramienta te sirve y cuál es humo.',
+      'Treinta lecciones en video para entender de qué hablan cuando hablan de legal tech, sin vender nada. Verás qué se automatiza de verdad en un estudio pequeño, cuánto cuesta empezar (poco) y qué riesgos reales existen con los datos de tus clientes. Al terminar sabrás decidir qué herramienta te sirve y cuál es humo.',
     topic: course_topic.FIRST_STEPS,
     level: course_level.INTRODUCTORY,
     status: course_status.PUBLISHED,

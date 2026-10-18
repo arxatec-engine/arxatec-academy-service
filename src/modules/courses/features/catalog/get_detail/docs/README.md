@@ -1,8 +1,12 @@
 # `GET /courses/:slug` — el porqué
 
-La ficha de curso de la pantalla 02 del brief, que se llama literalmente *"Temario completo sin
-cuenta"*. Devuelve el curso y **sus lecciones enteras** —título, descripción, tipo y duración— a
+La ficha de curso de la pantalla 02 del brief, que se llama literalmente _"Temario completo sin
+cuenta"_. Devuelve el curso y **sus lecciones enteras** —título, descripción, tipo y duración— a
 cualquiera, con o sin sesión. Lo único que cambia cuando hay sesión es un booleano.
+
+`course.teacher` contiene `full_name`, `biography` y `photo_url`, o `null` cuando el curso no
+tiene docente asignado. La ficha pública no expone el id del perfil. La relación se administra
+desde la edición del curso y un mismo docente puede aparecer en varios cursos.
 
 ## 1. El recorrido
 
@@ -17,12 +21,12 @@ GET /api/v1/courses/:slug            (Bearer opcional)
   → 200 { … data: { course, lessons } }
 ```
 
-| Paso | Archivo |
-| --- | --- |
-| cadena de la ruta | `presentation/get_detail.routes.ts:9` |
-| sesión → validación → service → respuesta | `presentation/get_detail.controller.ts:11-17` |
-| regla de negocio | `presentation/get_detail.service.ts:18-38` |
-| persistencia | `src/modules/courses/shared/data/courses.repository.ts:159-172` |
+| Paso                                      | Archivo                                                         |
+| ----------------------------------------- | --------------------------------------------------------------- |
+| cadena de la ruta                         | `presentation/get_detail.routes.ts:9`                           |
+| sesión → validación → service → respuesta | `presentation/get_detail.controller.ts:11-17`                   |
+| regla de negocio                          | `presentation/get_detail.service.ts:18-38`                      |
+| persistencia                              | `src/modules/courses/shared/data/courses.repository.ts:159-172` |
 
 ## 2. El temario entero es público; el contenido, no
 
@@ -32,11 +36,11 @@ Un temario escondido no vende el curso; un contenido abierto no deja nada que ve
 
 Lo que sale y lo que no está decidido **en el `select`, no en un borrado posterior**:
 
-| Sale | No sale | Por qué |
-| --- | --- | --- |
-| `slug`, `title`, `description`, `type`, `position` | `article_body` | es el contenido: lo entrega la fase 10, y solo a quien tenga acceso |
-| `duration_seconds`, `reading_minutes` | `transcript` | ídem; además es la red de E6 en la pantalla de lección |
-| `is_free_sample`, `is_unlocked` | `video_provider`, `video_external_id` | con el id del video, el candado se salta abriendo Vimeo |
+| Sale                                               | No sale                               | Por qué                                                             |
+| -------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------- |
+| `slug`, `title`, `description`, `type`, `position` | `article_body`                        | es el contenido: lo entrega la fase 10, y solo a quien tenga acceso |
+| `duration_seconds`, `reading_minutes`              | `transcript`                          | ídem; además es la red de E6 en la pantalla de lección              |
+| `is_free_sample`, `is_unlocked`                    | `video_provider`, `video_external_id` | con el id del video, el candado se salta abriendo Vimeo             |
 
 `LESSON_SUMMARY_SELECT` (`src/modules/courses/shared/data/courses.repository.ts:43-52`) es la lista
 de las ocho columnas que se piden. Los cuatro campos prohibidos **nunca se leen de la base**, así
@@ -84,7 +88,7 @@ filtrar el calendario de lanzamientos.
 
 ## 5. El curso publicado sin lecciones publicadas responde `200`
 
-Es la mitad pública de E4: *"El temario se publica el 3 de setiembre. Este curso ya tiene fecha."*
+Es la mitad pública de E4: _"El temario se publica el 3 de setiembre. Este curso ya tiene fecha."_
 Con la invariante de la fase 08 no debería existir, salvo que se despublique la última lección de
 un curso ya publicado (la fase 15 lo permite). El endpoint responde `200` con `lessons: []` y
 `lesson_count: 0`, y el frontend pinta esa pantalla. **No es un `404`: el curso existe y tiene
@@ -101,8 +105,8 @@ usa un `groupBy` porque allí no se traen las lecciones; aquí traerlas **es** l
 pedirle a PostgreSQL que las cuente otra vez sería una segunda consulta para un dato que ya está
 en memoria y garantizado consistente con la lista que se devuelve.
 
-`video_count` y `article_count` existen porque la pantalla 02 los pinta: *"6 lecciones · 1 h 10 min
-· 4 videos, 2 artículos"*.
+`video_count` y `article_count` existen porque la pantalla 02 los pinta: _"6 lecciones · 1 h 10 min
+· 4 videos, 2 artículos"_.
 
 ## 7. Los tests
 

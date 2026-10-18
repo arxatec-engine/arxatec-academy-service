@@ -22,6 +22,7 @@ const findPublishedCourseBySlugMock = jest.mocked(findPublishedCourseBySlug);
 const findPublishedLessonsByCourseIdMock = jest.mocked(findPublishedLessonsByCourseId);
 
 const COURSE: CourseDetailRecord = {
+  teacher: null,
   id: 'crs_1',
   slug: 'fundamentos-de-legal-tech',
   title: 'Fundamentos de legal tech',
@@ -34,6 +35,7 @@ const COURSE: CourseDetailRecord = {
 
 const LESSONS: readonly LessonSummaryRecord[] = [
   {
+    id: 'lesson-1',
     slug: 'que-es-legal-tech-y-que-no',
     title: 'Qué es legal tech y qué no',
     description: 'Separamos tres cosas que suelen ir revueltas.',
@@ -44,6 +46,7 @@ const LESSONS: readonly LessonSummaryRecord[] = [
     is_free_sample: true,
   },
   {
+    id: 'lesson-2',
     slug: 'el-costo-oculto-de-trabajar-en-word-y-correo',
     title: 'El costo oculto de trabajar en Word y correo',
     description: 'Cuánto tiempo se pierde buscando la última versión.',
@@ -54,6 +57,7 @@ const LESSONS: readonly LessonSummaryRecord[] = [
     is_free_sample: false,
   },
   {
+    id: 'lesson-3',
     slug: 'las-cuatro-herramientas-que-ya-usas-sin-saberlo',
     title: 'Las cuatro herramientas que ya usas sin saberlo',
     description: 'Firma digital, notificaciones electrónicas y dos más.',
@@ -92,6 +96,7 @@ describe('getDetailService', () => {
     expect(findPublishedCourseBySlugMock).toHaveBeenCalledWith(COURSE.slug);
     expect(findPublishedLessonsByCourseIdMock).toHaveBeenCalledWith('crs_1');
     expect(result.course).toEqual({
+      teacher: null,
       slug: COURSE.slug,
       title: COURSE.title,
       long_description: COURSE.long_description,
@@ -123,6 +128,7 @@ describe('getDetailService', () => {
 
     expect(result.lessons).toHaveLength(3);
     expect(result.lessons[1]).toEqual({
+      id: 'lesson-2',
       slug: 'el-costo-oculto-de-trabajar-en-word-y-correo',
       title: 'El costo oculto de trabajar en Word y correo',
       description: 'Cuánto tiempo se pierde buscando la última versión.',

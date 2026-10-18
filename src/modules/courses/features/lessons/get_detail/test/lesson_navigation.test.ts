@@ -49,6 +49,7 @@ describe('resolveLessonNavigation', () => {
   it('del vecino solo copia slug y título, aunque el registro traiga más campos', () => {
     const temario: readonly LessonSummaryRecord[] = [
       {
+        id: 'lesson-1',
         slug: 'leccion-1',
         title: 'Lección 1',
         description: 'La primera',
@@ -59,6 +60,7 @@ describe('resolveLessonNavigation', () => {
         is_free_sample: true,
       },
       {
+        id: 'lesson-2',
         slug: 'leccion-2',
         title: 'Lección 2',
         description: 'La segunda',

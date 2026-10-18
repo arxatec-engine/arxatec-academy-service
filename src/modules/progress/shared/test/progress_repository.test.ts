@@ -1,3 +1,7 @@
+jest.mock('@/modules/progress/shared/data/certificates.repository', () => ({
+  issueCourseCertificate: jest.fn(),
+}));
+
 jest.mock('@/config/prisma_client', () => {
   const client: Record<string, unknown> = {
     enrollments: {
@@ -25,6 +29,7 @@ jest.mock('@/config/prisma_client', () => {
 });
 
 import { prisma } from '@/config/prisma_client';
+import { issueCourseCertificate } from '@/modules/progress/shared/data/certificates.repository';
 import {
   completeLesson,
   countCompletedEnrollments,
@@ -48,6 +53,7 @@ const progressFindUniqueOrThrow = jest.spyOn(prisma.lesson_progress, 'findUnique
 const progressCount = jest.spyOn(prisma.lesson_progress, 'count');
 
 const ENROLLMENT_SELECT = {
+  certificate: { select: { id: true } },
   course_id: true,
   started_at: true,
   completed_at: true,
@@ -190,6 +196,7 @@ describe('completeLesson · la última que faltaba', () => {
     });
 
     expect(enrollmentsUpdateMany).toHaveBeenCalledTimes(1);
+    expect(issueCourseCertificate).not.toHaveBeenCalled();
     expect(enrollmentsUpdateMany).toHaveBeenCalledWith({
       where: { user_id: 'usr_1', course_id: 'crs_1' },
       data: { last_lesson_id: 'les_3' },
@@ -211,6 +218,7 @@ describe('completeLesson · la última que faltaba', () => {
       where: { user_id: 'usr_1', course_id: 'crs_1', completed_at: null },
       data: { completed_at: COMPLETED_AT },
     });
+    expect(issueCourseCertificate).not.toHaveBeenCalled();
   });
 
   it('marcar una lección deja al alumno inscrito aunque no hubiera pulsado "Empezar curso"', async () => {

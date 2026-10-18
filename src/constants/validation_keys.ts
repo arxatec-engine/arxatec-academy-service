@@ -23,6 +23,11 @@ export const ValidationKeys = {
     topic_invalid: 'courses.errors.topic_invalid',
     level_invalid: 'courses.errors.level_invalid',
     search_too_long: 'courses.errors.search_too_long',
+    title_required: 'courses.errors.title_required',
+    title_too_long: 'courses.errors.title_too_long',
+    short_description_too_long: 'courses.errors.short_description_too_long',
+    expected_updated_at_required: 'courses.errors.expected_updated_at_required',
+    course_ids_invalid: 'courses.errors.course_ids_invalid',
   },
   progress: {
     lesson_id_required: 'progress.errors.lesson_id_required',

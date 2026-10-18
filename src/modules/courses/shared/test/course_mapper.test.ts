@@ -22,6 +22,7 @@ const CATALOG_RECORD: CourseCatalogRecord = {
 };
 
 const DETAIL_RECORD: CourseDetailRecord = {
+  teacher: null,
   id: 'crs_1',
   slug: 'fundamentos-de-legal-tech',
   title: 'Fundamentos de legal tech',
@@ -33,6 +34,7 @@ const DETAIL_RECORD: CourseDetailRecord = {
 };
 
 const VIDEO_LESSON: LessonSummaryRecord = {
+  id: 'lesson-1',
   slug: 'que-es-legal-tech-y-que-no',
   title: 'Qué es legal tech y qué no',
   description: 'Separamos tres cosas que suelen ir revueltas.',
@@ -44,6 +46,7 @@ const VIDEO_LESSON: LessonSummaryRecord = {
 };
 
 const ARTICLE_LESSON: LessonSummaryRecord = {
+  id: 'lesson-2',
   slug: 'el-costo-oculto-de-trabajar-en-word-y-correo',
   title: 'El costo oculto de trabajar en Word y correo',
   description: 'Cuánto tiempo se pierde buscando la última versión.',
@@ -55,6 +58,18 @@ const ARTICLE_LESSON: LessonSummaryRecord = {
 };
 
 describe('course_mapper', () => {
+  it('la ficha publica solo nombre, biografía y foto del docente', () => {
+    const teacher = {
+      id: 'teacher-private', full_name: 'Ana Pérez', biography: 'Docente de legal tech.',
+      photo_url: 'https://example.test/ana.jpg',
+    };
+    const mapped = toApiCourseDetail({ ...DETAIL_RECORD, teacher }, summarizeLessons([]));
+    expect(mapped.teacher).toEqual({
+      full_name: teacher.full_name, biography: teacher.biography, photo_url: teacher.photo_url,
+    });
+    expect(toApiCourseDetail(DETAIL_RECORD, summarizeLessons([])).teacher).toBeNull();
+  });
+
   it('el curso del catálogo no lleva el id interno', () => {
     const mapped = toApiCatalogCourse(
       CATALOG_RECORD,
@@ -96,6 +111,7 @@ describe('course_mapper', () => {
       [
         'description',
         'duration_seconds',
+        'id',
         'is_free_sample',
         'is_unlocked',
         'position',

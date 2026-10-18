@@ -27,6 +27,11 @@ export const toApiCourseDetail = (
   course: CourseDetailRecord,
   totals: CourseContentTotals,
 ): ApiCourseDetail => ({
+  teacher: course.teacher ? {
+    full_name: course.teacher.full_name,
+    biography: course.teacher.biography,
+    photo_url: course.teacher.photo_url,
+  } : null,
   slug: course.slug,
   title: course.title,
   long_description: course.long_description,
@@ -44,6 +49,7 @@ export const toApiLessonSummary = (
   lesson: LessonSummaryRecord,
   is_unlocked: boolean,
 ): ApiLessonSummary => ({
+  id: lesson.id,
   slug: lesson.slug,
   title: lesson.title,
   description: lesson.description,

@@ -19,7 +19,7 @@ PATCH /api/v1/me/password
 | cadena de la ruta | `presentation/update_password.routes.ts:9` |
 | usuario → validación → service → respuesta | `presentation/update_password.controller.ts:11-29` |
 | reglas | `presentation/update_password.service.ts:26-61` |
-| la transacción | `../../../shared/data/user_account.repository.ts:78-95` |
+| la transacción | `../../../shared/data/user_account.repository.ts:74-91` |
 
 ## 2. La diferencia con `password_reset/reset`: **la sesión actual sobrevive**
 

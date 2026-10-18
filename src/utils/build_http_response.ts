@@ -5,6 +5,9 @@ export interface HttpResponseMeta {
   code?: ErrorCode;
   fields?: Record<string, string>;
   retry_after_seconds?: number;
+  row_count?: number;
+  max_rows?: number;
+  pagination?: { page: number; per_page: number; total: number; total_pages: number };
 }
 
 export interface BuildHttpResponseInput<TData> {

@@ -1,0 +1,8 @@
+model teachers {
+  id        String  @id @default(cuid())
+  full_name String  @db.VarChar(120)
+  biography String
+  photo_url String?
+
+  courses courses[]
+}

@@ -29,6 +29,7 @@ const ROUTE = `${ApiPrefix}${AuthRoutePrefix}${AuthEndpoints.register}`;
 
 const session: RegisterResult = {
   token: 'eyJhbGciOiJIUzI1NiJ9.firmado',
+  verification_email_sent: true,
   expires_at: '2026-09-19T12:00:00.000Z',
   user: {
     id: 'usr_1',
@@ -82,6 +83,28 @@ beforeEach(() => {
 });
 
 describe('POST /auth/register', () => {
+  it('permite crear una cuenta solo con nombre, correo y contrasena', async () => {
+    const response = await request(buildApp()).post(ROUTE).send({
+      full_name: baseBody.full_name,
+      email: baseBody.email,
+      password: baseBody.password,
+    });
+
+    expect(response.status).toBe(HttpStatusCodes.CREATED.code);
+    expect(registerUserMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        full_name: baseBody.full_name,
+        email: baseBody.email,
+        password: baseBody.password,
+        is_independent: false,
+        city: user_city.OTHER,
+      }),
+    );
+    const command = registerUserMock.mock.calls[0]?.[0];
+    expect(command?.organization).toBeUndefined();
+    expect(command?.city_other).toBeUndefined();
+  });
+
   it('responde 201 con el sobre del contrato y la sesion en data', async () => {
     const response = await request(buildApp()).post(ROUTE).send(validBody);
 

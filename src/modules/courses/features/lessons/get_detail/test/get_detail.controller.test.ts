@@ -76,6 +76,7 @@ const pathTo = (lesson_slug: string): string =>
 const NOW = new Date();
 
 const COURSE: CourseDetailRecord = {
+  teacher: null,
   id: 'crs_1',
   slug: COURSE_SLUG,
   title: 'Fundamentos de legal tech',
@@ -88,6 +89,7 @@ const COURSE: CourseDetailRecord = {
 
 const TEMARIO: readonly LessonSummaryRecord[] = [
   {
+    id: 'lesson-1',
     slug: SAMPLE_SLUG,
     title: 'Qué es legal tech y qué no',
     description: 'Separamos tres cosas que suelen ir revueltas.',
@@ -98,6 +100,7 @@ const TEMARIO: readonly LessonSummaryRecord[] = [
     is_free_sample: true,
   },
   {
+    id: 'lesson-2',
     slug: VIDEO_SLUG,
     title: 'Las cuatro herramientas que ya usas sin saberlo',
     description: 'Firma digital, notificaciones electrónicas y dos más.',
@@ -110,6 +113,7 @@ const TEMARIO: readonly LessonSummaryRecord[] = [
 ];
 
 const LOCKED: LessonLockedRecord = {
+  id: 'locked-lesson-id',
   slug: VIDEO_SLUG,
   title: 'Las cuatro herramientas que ya usas sin saberlo',
   description: 'Firma digital, notificaciones electrónicas y dos más.',

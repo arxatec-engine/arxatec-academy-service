@@ -33,6 +33,7 @@ const enrollInCourseMock = jest.mocked(enrollInCourse);
 const findCompletedLessonIdsMock = jest.mocked(findCompletedLessonIds);
 
 const COURSE: CourseDetailRecord = {
+  teacher: null,
   id: 'crs_1',
   slug: 'fundamentos-de-legal-tech',
   title: 'Fundamentos de legal tech',
@@ -74,6 +75,7 @@ describe('createEnrollmentService', () => {
     const result = await createEnrollmentService(payload);
 
     expect(result.enrollment).toEqual({
+      certificate_id: null,
       course: { slug: COURSE.slug, title: COURSE.title },
       started_at: '2026-07-01T10:00:00.000Z',
       completed_at: null,

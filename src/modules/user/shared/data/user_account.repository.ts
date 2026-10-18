@@ -53,14 +53,10 @@ export const findUserSummary = async (user_id: string): Promise<UserSummaryRecor
 export const updateUserProfile = async ({
   user_id,
   full_name,
-  organization,
-  is_independent,
-  city,
-  city_other,
 }: UpdateUserProfileInput): Promise<AuthUserRecord> =>
   prisma.users.update({
     where: { id: user_id },
-    data: { full_name, organization, is_independent, city, city_other },
+    data: { full_name },
     select: USER_PROFILE_SELECT,
   });
 

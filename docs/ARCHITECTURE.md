@@ -1,220 +1,222 @@
-# Arquitectura — `arxatec-academy-service`
+# Arquitectura — Arxatec Academy Service
 
-API REST de un solo proceso: Express 5 + Prisma 7 sobre PostgreSQL, TypeScript estricto, Zod en el
-borde y Pino para todo lo que se escribe. Un único módulo de negocio hoy —`auth`, con los 11
-endpoints del contrato— y toda la infraestructura que ese módulo necesita, sin nada de más.
+Academy es una API REST para formación: Express 5, TypeScript estricto, Zod, PostgreSQL con
+Prisma 7 y Pino. El servicio contiene catálogo, lecciones, identidad del alumno, progreso,
+comunidad y administración de contenido en un mismo proceso. La estructura documental sigue
+la de Admin; la implementación mantiene los contratos propios de Academy.
 
-Lo que **no** hay, y es deliberado (`harness/02_reglas_backend.md` §2): no hay workspaces (Academy
-es B2C, las rutas son planas), no hay Redis ni colas (el correo se manda dentro de la petición),
-no hay Socket.IO y no hay middlewares de plan ni de créditos.
+## 1. Stack y límites del producto
 
-## 1. El mapa
+| Capa                 | Implementación                                                               |
+| -------------------- | ---------------------------------------------------------------------------- |
+| Runtime y paquetes   | Node.js >=22.12, pnpm fijado en `packageManager`                             |
+| HTTP                 | Express 5, Helmet, CORS, cookie-parser y Multer                              |
+| Lenguaje y build     | TypeScript estricto, CommonJS, aliases `@/`, `tsc` y `tsc-alias`             |
+| Persistencia         | Prisma 7 con `@prisma/adapter-pg`, PostgreSQL y esquema dividido por dominio |
+| Validación           | Zod en entradas, policies y mappers explícitos                               |
+| Autenticación        | JWT HS256, sesiones persistidas, Passport Google OAuth 2.0                   |
+| Contraseñas y tokens | Argon2id, tokens aleatorios y SHA-256 para tokens de un solo uso             |
+| Correo               | Nodemailer SMTP en desarrollo y producción; transporte log solo en pruebas   |
+| Archivos             | Puerto de almacenamiento, adaptador local operativo, S3 pendiente            |
+| Video                | Puerto oEmbed con adaptadores Vimeo, YouTube y fake                          |
+| Pruebas              | Jest, SWC, Supertest y PostgreSQL real para integración                      |
+
+Academy tiene una base propia y roles STUDENT/ADMIN de producto. No utiliza workspaces,
+pertenencias multi-tenant, créditos, facturación ni una conexión lectora a Lawyer. El arranque
+no incorpora Redis, BullMQ, Socket.IO, workers o cron.
+
+## 2. Mapa del repositorio
 
 ```text
 src/
-├─ server.ts              arranque HTTP + apagado ordenado por recursos "closeable"
-├─ app/create_app.ts      la cadena de middlewares, en orden intencional
-├─ config/                env (Zod), logger, prisma_client, email, passport
-├─ constants/             http_status_codes, error_codes, endpoints, auth, prisma, messages/*
-├─ generated/             cliente Prisma (no se edita)
-├─ infrastructure/        email (plantillas + envío), jwt, tokens de un solo uso, password, storage
-├─ middlewares/           request_id, http_logger, cors, rate_limit, auth (estricta y opcional),
-│                         require_admin, require_verified_email, file_upload, local_files,
-│                         error_handler
-├─ modules/auth/          LOS SLICES  (features/ + shared/)
-├─ modules/courses/       features/{catalog,lessons} (fases 09-10) + shared/{data,domain,policy}
-├─ modules/progress/      features/{enrollment,lesson_progress,my_courses} (fase 11)
-│                         + shared/{data,domain,policy}
-├─ modules/comments/      features/{thread,report} (fase 12) + shared/{data,domain}
-├─ modules/user/          features/{profile,account} (fase 13) + shared/{data,domain}
-├─ routes/index.ts        registro central: /api/v1 + un router por módulo
-├─ types/                 tipos transversales (usuario autenticado, augmentación de Express)
-└─ utils/                 errors, build_http_response, authenticated_user, safe_redirect,
-                         request_body
+├── server.ts                    # HTTP, registro de recursos y cierre ordenado
+├── app/create_app.ts            # composición de Express
+├── config/                      # env, logger, Prisma, email y Passport
+├── constants/                   # endpoints, políticas, códigos, mensajes y claves i18n
+├── generated/                   # cliente Prisma generado; no editar
+├── infrastructure/
+│   ├── email/                   # puerto de entrega, enlaces y plantillas
+│   ├── jwt/                     # firma y validación del token de sesión
+│   ├── password/                # Argon2id
+│   ├── tokens/                  # tokens opacos y hash
+│   ├── storage/                 # puerto, validación y adaptadores
+│   └── video/                   # probe y adaptadores de proveedor
+├── middlewares/                 # identidad, permisos, límites, uploads y errores
+├── modules/
+│   ├── auth/                    # registro, login, sesión, reset, verificación, Google
+│   ├── courses/                 # catálogo, lectura y edición de cursos/lecciones
+│   ├── progress/                # inscripción, avance, Mis cursos y certificados públicos
+│   ├── comments/                # hilos, respuestas, reportes y moderación
+│   ├── user/                    # perfil, cuenta, directorio y CSV
+│   └── notifications/           # avisos, temas y gestión administrativa
+├── routes/index.ts              # composición bajo /api/v1
+├── seed/                        # fixtures de desarrollo
+├── types/                       # identidad y ampliación de Express
+└── utils/                       # respuestas, errores, CSV, fechas y normalización
 
-prisma/schema/            _base · enums · users · auth · courses · progress · comments
-tests/integration/postgres/   PostgreSQL real: auth, progreso, comentarios y perfil/baja de cuenta
-docs/                     API.md · ARCHITECTURE.md · ENV.md
+prisma/schema/                   # _base, enums y modelos de dominio
+prisma/migrations/               # historial SQL de Academy
+config/jest/                     # configuración compartida e integración
+tests/integration/postgres/      # flujos transversales con base real
+scripts/                        # citas documentales y smoke HTTP
+docs/                           # guías, alcance por área y entregas
 ```
 
-## 2. La cadena de arranque
+## 3. Arranque y cadena HTTP
 
-`createApp()` (`src/app/create_app.ts:20-38`) monta, en este orden y por este motivo:
+[createApp](../src/app/create_app.ts) monta las piezas en este orden:
 
-| Orden | Pieza | Por qué ahí |
-| --- | --- | --- |
-| 1 | `trust proxy` | sin él, `req.ip` es la del balanceador y **todos** los límites por IP comparten cubo |
-| 2 | `helmet` | cabeceras antes que cualquier respuesta |
-| 3 | `requestId` | lo primero que corre de lo nuestro: todo lo demás correlaciona con su id |
-| 4 | `cookieParser`, `httpLogger`, `corsHandler` | |
-| 5 | `express.json` (1 MB) | **antes de los routers**: el limitador de login agrupa por IP+correo y el correo sale de `req.body` |
-| 6 | `passport.initialize()` | |
-| 7 | `/ping` | sonda de vida sin pasar por el router de la API |
-| 8 | `/files` → `localFiles` | almacenamiento local servido por `express.static`, solo con `STORAGE_DRIVER=local` |
-| 9 | `routes` | `/api/v1` + `authRouter` |
-| 10 | `registerErrorHandler` | 404 y manejador global, **siempre el último** |
+| Orden | Pieza                             | Propósito                                              |
+| ----- | --------------------------------- | ------------------------------------------------------ |
+| 1     | `trust proxy = 1`                 | Resolver la IP con una topología de un salto confiable |
+| 2     | Helmet y request id               | Cabeceras y correlación antes de responder             |
+| 3     | cookie-parser, logger y CORS      | Estado OAuth, log HTTP y origen de frontend            |
+| 4     | JSON y urlencoded, 1 MiB cada uno | Construir el body antes de límites que usan el correo  |
+| 5     | Passport initialize               | Habilitar la estrategia Google sin sesiones Passport   |
+| 6     | `GET /ping`                       | Comprobar respuesta HTTP, sin consulta de base         |
+| 7     | `/files`                          | Servir la carpeta pública con driver local             |
+| 8     | Routers                           | Montar rutas públicas, alumno y administración         |
+| 9     | 404 y error handler               | Convertir errores en el contrato HTTP común            |
 
-`server.ts` no solo arranca: registra cada recurso como *closeable* y los cierra en orden inverso
-ante `SIGTERM`/`SIGINT`, con un watchdog de 10 s (`src/constants/server.ts:5`). Sin eso, un deploy
-deja conexiones colgadas.
+CORS deriva un origen de `FRONTEND_URL`; no sustituye Bearer ni `requireAdmin`.
+El middleware de archivos estáticos no autentica descargas. La estrategia Google se registra
+al utilizarse y falla si faltan sus credenciales, sin bloquear el login por contraseña al arrancar.
 
-## 3. El slice vertical
+[server.ts](../src/server.ts) registra transporte de correo, Prisma y HTTP como recursos
+cerrables. SIGTERM/SIGINT los cierra en orden inverso: HTTP, Prisma y correo, con watchdog de
+10 segundos. Las excepciones no controladas también activan el cierre. No existe una ruta
+readiness que consulte PostgreSQL ni una comprobación de base antes de `listen`.
 
-La unidad de trabajo es el endpoint, no la capa. Cada action tiene sus cinco capas, su README y sus
-tests:
+## 4. Slices y responsabilidades
 
 ```text
-features/<feature>/<action>/
-├─ domain/       <a>.schema.ts (Zod) · <a>.payload.ts · <a>.types.ts
-├─ data/         <a>.repository.ts        Prisma, select explícito
-├─ presentation/ <a>.service.ts (sin Express) · <a>.controller.ts (sin try/catch) · <a>.routes.ts
-├─ docs/README.md
-├─ test/
-└─ utils/        solo si lo usa esta action
+modules/<module>/features/<feature>/<action>/
+├── domain/          # schema Zod, payload, tipos y reglas locales
+├── data/            # persistencia propia, cuando corresponde
+├── presentation/    # rutas, controller y service
+├── docs/README.md   # contrato, porqué, invariantes y evidencia
+├── test/            # tests de la unidad
+└── utils/           # solo si el helper pertenece a esta acción
 ```
 
-El orden dentro del controller es fijo —**usuario → validación → service → respuesta**— y no hay
-`try/catch` en ninguno: los errores suben al manejador global, que es el único sitio donde un error
-se convierte en HTTP.
+El recorrido es `router → middleware → controller → schema → service → repository → Prisma`.
+Controllers conocen Express y construyen respuestas; services reciben datos tipados y aplican
+reglas; repositories seleccionan columnas y escriben; las políticas puras definen decisiones
+reutilizables. Las integraciones de correo, almacenamiento y video viven tras puertos.
 
-Las 9 actions del módulo: `registration/register`, `email_login/login`, `session/get_me`,
-`session/logout`, `password_reset/request`, `password_reset/reset`, `email_verification/verify`,
-`email_verification/resend`, y las tres de `google_login` (`start`, `callback`, `exchange`).
+Auth, lectura de catálogo, progreso y perfil tienen acciones separadas. Las features
+administrativas y notifications aún agrupan varias acciones en archivos de presentación; se
+registran como implementadas con deuda de estructura, no como una separación ya completada.
 
-## 4. Las cinco invariantes del módulo de auth
+| Alcance compartido            | Ubicación                     | Ejemplo                                                  |
+| ----------------------------- | ----------------------------- | -------------------------------------------------------- |
+| Una acción                    | La propia acción              | Hash señuelo de login, suelo de recuperación             |
+| Varias acciones de un dominio | `modules/<module>/shared`     | Sesiones, referencias de cursos, repositorio de progreso |
+| Infraestructura transversal   | `infrastructure`              | Envío de correo, archivo local, probe externo            |
+| Helpers sin negocio de módulo | `utils`, `constants`, `types` | Sobre HTTP, CSV y códigos de error                       |
 
-1. **`password_hash` no sale nunca.** Dos barreras independientes: el `select` explícito de todos
-   los repositorios (`02_reglas_backend.md` §7) y la lista campo a campo de `toApiUser`
-   (`src/modules/auth/shared/domain/user_mapper.ts:3-16`). La segunda existe porque la primera se
-   puede ampliar por accidente. `tests/integration/postgres/auth_flow.test.ts` busca la cadena
-   `password_hash` en el JSON completo de tres respuestas distintas.
-2. **La base de datos manda sobre el JWT.** Cada petición autenticada lee la fila de
-   `auth_sessions`; sin eso, "cerrar sesión" sería decorativo hasta el `exp` del token. Corolario
-   que costó un fallo: el `exp` que se firma **no** es el `expires_at` deslizante de la fila —que
-   se mueve con cada uso— sino el **tope absoluto** de la sesión (`created_at` + 180 días,
-   `AuthTokenTtlSeconds.session_absolute_max`). Firmarlo con la fecha deslizante expulsaba con
-   `SESSION_EXPIRED` al usuario que entra todos los días, justo el día 31, con su fila viva.
-   `resolveSessionRenewal` corta el empujón en ese mismo tope, así que la fila nunca promete más
-   vida que el token (contrato §3, `src/infrastructure/docs/README.md` §2).
-3. **Los tokens de un solo uso viven hasheados** (SHA-256, `one_time_token.ts:11-12`). El token en
-   claro solo existe en el correo. Consumirlos es un compare-and-set (`updateMany` con
-   `consumed_at: null`), no un `update`: así dos peticiones simultáneas no lo canjean dos veces.
-4. **Los flujos de descubrimiento de cuentas responden igual exista o no el correo.** Login (mismo
-   error, y un argon2 señuelo para igualar el tiempo) y recuperación (mismo texto y un suelo de
-   400 ms).
-5. **El log no lleva secretos, y eso incluye la URL.** Los serializadores de `http_logger`
-   escriben `{ id, method, url }` **sin query** y `{ statusCode }` **sin cabeceras**
-   (`src/middlewares/http_logger.ts:33-48`): con los de pino-http por defecto, el `302` del
-   callback de Google escribía en el log su cabecera `Location` con el código de canje todavía
-   sin usar, y la query entrante con el `code` y el `state` de Google
-   (`01_reglas_globales.md` §8.6, `src/middlewares/docs/README.md` §2).
+Dependency-cruiser verifica ciclos, imports privados entre módulos, runtime hacia tests,
+constants hacia runtime y utils hacia módulos. No prueba por sí solo todas las reglas de diseño:
+por ejemplo, no hay una regla general que detecte cada uso de Express en un service.
 
-## 5. Errores: un solo camino
+## 5. Identidad y sesiones
 
-`AppError(message, statusCode, meta)` (`src/utils/errors.ts:9-20`) es el único error de dominio.
-`meta.code` está tipado con la unión cerrada de `ErrorCodes` (`src/constants/error_codes.ts`), así
-que **un código que no esté en el catálogo no compila**: es lo que impide que un slice invente su
-propio vocabulario para el frontend.
+El JWT incluye `sub`, `jti`, `role`, `iat`, `exp` e `iss`. Su firma HS256 valida el portador,
+pero cada petición autenticada consulta `auth_sessions` y su usuario. Se comprueba coincidencia
+entre `sub` y usuario, revocación y caducidad. El rol efectivo y la verificación de correo vienen
+de PostgreSQL, por lo que un claim anterior no conserva permisos retirados.
 
-`registerErrorHandler` (`src/middlewares/error_handler.ts:159-162`) monta el 404 y el manejador
-global. Traduce tres familias: `AppError` (tal cual), `ZodError` → `422` con `meta.fields` de claves
-i18n, y el error de cuerpo demasiado grande de Express → `413`. Todo lo demás es `500
-INTERNAL_ERROR` con el detalle **solo en el log**. Los `5xx` se loguean con `error`, los `4xx` con
-`warn`.
+La ventana por inactividad es 30 días con `remember_me=true` y 12 horas con `false`. La
+renovación obligatoria se limita a una escritura cada cinco minutos. El JWT vence a los 180 días
+desde la creación; la ventana deslizante nunca supera ese tope. `optionalAuthenticate` reconoce
+una sesión válida, pero no la renueva; un Bearer inválido se trata como anónimo en esas rutas.
 
-## 6. Política de código compartido, y la deuda que queda
+Logout utiliza el autenticador que tolera sesión revocada para repetir el cierre. Reset consume
+el token, cambia contraseña, verifica el correo si faltaba y revoca todas las sesiones dentro
+de una transacción. El cambio desde perfil conserva la sesión actual y revoca las otras.
 
-| Alcance | Dónde vive | Ejemplo real |
-| --- | --- | --- |
-| una action | `domain/` de la action | `decoy_password_hash.ts`, `resend_cooldown.ts` |
-| varias actions del módulo | `modules/auth/shared/{data,domain,policy}` | `users.repository`, `session_policy` |
-| transversal de verdad | `src/utils`, `src/constants`, `src/types` | `safe_redirect`, `AuthPolicy` |
+Los secretos de verificación, reset y canje Google se guardan hasheados y se consumen con una
+escritura condicionada a no estar usados. Google utiliza state firmado y cookie de nonce;
+redirige un código opaco de 60 segundos al frontend, nunca el JWT en la URL.
 
-Lo vigila dependency-cruiser con **cero tolerancia y sin baseline**
-(`.dependency-cruiser.cjs`): prohíbe ciclos, huérfanos, importar el `data/` privado de otro módulo,
-que `src/constants` dependa de runtime, que `utils` dependa de módulos y que runtime importe una
-`devDependency`.
+## 6. Contenido, acceso y publicación
 
-> **La deuda declarada.** `auth_tokens` es la única tabla sin repositorio compartido: siete
-> consultas equivalentes viven repartidas en `registration/register`, `email_verification/{verify,
-> resend}`, `password_reset/{request,reset}` y `google_login/{callback,exchange}`. Por §9.2 le
-> tocaría bajar a `modules/auth/shared/data/auth_tokens.repository.ts`. No se consolidó en esta
-> integración porque mover las siete obliga a reescribir los mocks —por path exacto— de cinco
-> slices, y ese cambio merece su propio commit con sus gates, no ir de polizón en el montaje.
-> Relacionado: los repositorios compartidos hablaban con el cliente global `prisma` y **no
-> aceptaban un cliente transaccional**, que es la razón por la que `reset` duplica el `updateMany`
-> de revocación dentro de su `$transaction` en vez de llamar a `revokeAllUserSessions` (perdería
-> la atomicidad sin que ningún test lo notara). **La fase 13 abrió esa puerta**: las cuatro
-> funciones que necesita la baja de cuenta —`revokeOtherUserSessions`, `deleteUserAuthArtifacts`,
-> `deleteUserProgress` y `deleteUserComments`— aceptan un `Prisma.TransactionClient` opcional como
-> último parámetro, con el cliente global por defecto. Es el patrón que puede saldar la deuda de
-> `reset`, pero ese cambio sigue siendo de su propio commit.
+El catálogo solo consulta cursos publicados. La ficha presenta metadatos y temario publicado,
+incluido `lesson.id`; la lección abierta entrega video/artículo, transcripción y recursos.
+Sin sesión se puede leer una muestra gratuita; con sesión se leen las publicadas sin exigir
+inscripción ni correo verificado. Un contenido bloqueado devuelve `403 LESSON_LOCKED` con
+metadatos públicos, sin consultar el contenido abierto. Borradores y cursos archivados no se
+revelan en lecturas públicas por slug.
 
-## 7. Correo: sin cola, y con las consecuencias asumidas
+El editor administrativo usa otros selects y requiere ADMIN. El curso controla autoguardado
+con `expected_updated_at`; su primera publicación sella `published_at` y bloquea slug. El orden
+se escribe como conjunto completo de ids activos. Publicar exige una lección publicada y
+ambas descripciones. Archivar retira del catálogo sin borrar progreso; duplicar copia borradores.
 
-El módulo manda tres correos por usuario y por vida (verificación, recuperación, aviso de cambio).
-Montar Redis y BullMQ para eso sería infraestructura sin carga, así que **el envío ocurre dentro de
-la petición** (decisión D-002). Las tres consecuencias, todas explícitas en el código:
+Las lecciones separan VIDEO/ARTICLE. Cambiar tipo limpia columnas incompatibles y puede exigir
+confirmación. El servidor sanea HTML y calcula palabras/minutos; al quedar incompleta una
+lección publicada, vuelve a borrador. Vimeo aporta duración; YouTube requiere duración manual
+positiva porque oEmbed no la devuelve. Ver [lecciones](planning/lessons/README.md).
 
-- Un fallo de SMTP en el registro **no** cuesta la cuenta: se loguea con
-  `SystemMessages.email_failed` y la sesión se devuelve igual.
-- En `password/forgot` el envío no se espera (`void deliverPasswordResetEmail`, `request.service.ts:42`):
-  esperarlo haría visible por tiempo la rama "el correo existe", que es justo lo que el endpoint
-  oculta.
-- En desarrollo no se manda nada: `EMAIL_TRANSPORT=log` escribe el correo en el log, que es lo que
-  permite recorrer el flujo entero sin cuenta de correo.
+## 7. Persistencia y transacciones
 
-El punto de corte para el día que haya cola está marcado en `infrastructure/email`: es el único
-sitio que sabe cómo se entrega un correo.
+[prisma.config.ts](../prisma.config.ts) define `prisma/schema`, migraciones y semilla.
+El cliente generado usa CommonJS en `src/generated`. Hay un único `PrismaPg`; no se configura
+un presupuesto explícito de pool, consulta o admisión como en Admin.
 
-## 8. Tests
+El [mapa de datos](planning/data_model/README.md) explica índices, relaciones y cascadas. El
+progreso garantiza una fila por usuario/lección, inserta con conflicto ignorado y actualiza
+solo si avanza la posición. Completar agrupa marcado, inscripción y primer cierre en una
+transacción. La regla pura de finalización se llama desde el repositorio dentro de esa unidad
+para no sacar la decisión fuera del momento de escritura.
 
-| Tipo | Dónde | Qué mockea | Comando |
-| --- | --- | --- | --- |
-| unitario del slice | `src/**/test/` | cada colaborador **por su path exacto**; nunca un barril | `pnpm test` |
-| integración transversal | `tests/integration/postgres/` | solo `send_email`; Prisma y migraciones son reales | `pnpm test:integration:postgres` |
+La baja usa el mismo cliente transaccional al borrar progreso, borrar comentarios propios,
+retirar artefactos de auth y borrar usuario. El avatar se limpia después. Las funciones de
+otros módulos se consumen mediante su `shared`; una llamada con cliente global dentro de ese
+flujo perdería atomicidad.
 
-620 tests unitarios en 86 suites y 44 casos de integración (la cifra se actualiza con cada fase;
-la fase 08 la dejó en 321/40, la 09 en 382/49, la 10 en 433/54, la 11 en 529/71 y la 12 en
-620/86). El primero de integración recorre
-registro → `/me` → verificación (y segundo clic) → logout (y segundo logout) → login → intentos
-fallidos indistinguibles → recuperación (existente e inexistente) → reset → comprobación de que el
-reset **revocó** la sesión abierta → login con la contraseña nueva, comprobando en cada paso lo que
-quedó escrito en PostgreSQL, no solo lo que devolvió el HTTP.
+La deuda de auth sigue siendo que varias acciones gestionan `auth_tokens` desde sus propios
+repositorios. Consolidarlo requiere preservar consumo único y límites transaccionales, junto
+con los mocks por path de esas acciones.
 
-El segundo (`progress_flow.test.ts`, 13 casos, fase 11) recorre "Mis cursos" vacío → inscripción
-dos veces → guardado del minuto → **dos guardados simultáneos** y luego veinte a la vez sobre la
-misma lección → completar el curso entero → publicar una lección nueva y ver el curso volver a "en
-curso" **sin perder la fecha** → desmarcar → volver a marcar → curso archivado (`403`) → lección
-inexistente (`404`) → borrado de la cuenta en cascada. La carrera del `upsert` solo se puede
-probar contra PostgreSQL de verdad: un mock no tiene índice único.
+## 8. Comunidad, usuarios y avisos
 
-El tercero (`comments_flow.test.ts`, 17 casos, fase 12) recorre lista vacía (E5) → `401` sin
-sesión → **`403 EMAIL_NOT_VERIFIED`** sin verificar → `201` tras verificar → respuesta del equipo
-con insignia → **bajarle el rol al autor y ver la insignia desaparecer de lo ya escrito** → el
-JSON del listado público **sin una sola arroba** → afiliación por organización y por
-independiente → `422` al responder a una respuesta → dos reportes que dejan una fila →
-`HIDDEN`/`DELETED` que se llevan el hilo entero → los tres `422` del cuerpo → el texto plano
-guardado tal cual → lección en borrador (`404`) → el sexto comentario de la hora (`429`) → borrado
-de la cuenta con `SetNull` en los comentarios y `Cascade` en los reportes.
+El hilo público tiene un nivel de respuestas y autores sin correo. La insignia de equipo se
+deriva del rol actual. Escribir comentario/respuesta pública exige sesión y correo verificado;
+reportar exige sesión y deduplica por usuario/comentario. Ocultar una raíz retira el hilo de la
+proyección pública. Moderación persiste estado, actor y fechas sin introducir un sistema de
+auditoría genérica equivalente al de Admin.
 
-Los tests de integración se escribieron con una comprobación de mutación: al desactivar la
-revocación en cascada del reset y el autenticador tolerante del logout, **4 de 14 se pusieron
-rojos**. Un test que no se pone rojo cuando rompes lo que dice cubrir no cubre nada.
+Perfil modifica campos permitidos, sin correo ni rol. Directorio proyecta identidad y cierre de
+cursos, con filtros y CSV. Sus estadísticas globales no se limitan a la búsqueda; la paginación
+vive en `meta.pagination`, mientras moderación y avisos la devuelven dentro de `data`.
 
-## 9. Los gates
+Avisos aceptan correo anónimo o el de la sesión. Una migración añade un índice parcial para
+el aviso general con `course_id IS NULL`; el índice único compuesto no bastaría para ese caso.
+Los pedidos de tema agrupan demanda normalizada. Marcar avisados no envía correo. La IP se
+persiste como hash con sal en esas tablas.
 
-Los siete de `harness/07_gates.md`, en este orden y ninguno `continue-on-error`:
+## 9. Errores, logs y archivos
 
-```bash
-pnpm lint · pnpm typecheck · pnpm typecheck:tests · pnpm boundaries
-pnpm test · pnpm test:integration:postgres · pnpm build
-```
+`buildHttpResponse` entrega status, message, description, timestamp y path, con data/meta cuando
+aplican. `AppError` añade código estable y datos opcionales de confirmación. Zod se traduce a
+`422 VALIDATION_ERROR` con claves i18n; errores inesperados a `500 INTERNAL_ERROR`. CSV, OAuth y
+204 tienen transporte propio. Detalles y excepciones en [API](API.md).
 
-`pnpm prisma:generate` primero si el cliente está desfasado; los dos `typecheck` fallan en local
-sin él. El más olvidado es `typecheck:tests`, porque `tsconfig.json` **excluye** `src/**/test/**`:
-un test que no compila no lo detecta ningún otro gate.
+Pino serializa la petición sin query y la respuesta sin cabeceras para evitar códigos OAuth
+en logs HTTP. El transporte de correo log solo se admite en pruebas e incluye el texto del correo;
+tratar ese log como sensible. Desarrollo y producción exigen SMTP.
 
-`pnpm test:integration:postgres` necesita la base levantada (`docker compose up -d`) y las
-migraciones aplicadas; el archivo borra sus propias filas al empezar y al terminar, así que no deja
-residuos en la base de desarrollo.
+Los archivos se validan por uso, MIME, firma y tamaño. El driver local sirve URLs públicas;
+la clave interna permite limpieza, no autorización de bytes. S3 permanece sin implementar.
+Cambiar la base pública de almacenamiento no cambia URLs ya persistidas.
+
+## 10. Verificación y evolución
+
+[TESTING](TESTING.md) define los comandos y el aislamiento de PostgreSQL: la suite usa
+`DATABASE_URL` y requiere seed en una base desechable. [PERFORMANCE](PERFORMANCE.md) documenta
+las búsquedas y exportaciones que materializan conjuntos completos, sin inventar mediciones.
+
+Toda evolución debe mantener contrato, README del área, [decisiones](DECISIONS.md), entorno si
+cambia y [registro de entrega](shipped/README.md). La revisión de producción conserva pendientes
+explícitos; una estructura documental completa no implica que esos pendientes estén resueltos.

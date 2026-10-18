@@ -1,6 +1,7 @@
 # `modules/progress/shared` — el porqué
 
-Lo que comparten las cinco actions: **dos tablas, tres reglas puras y una guardia**. Aquí está la
+Lo que comparten las acciones de progreso: inscripciones, avance y certificados, junto con las
+reglas de finalización y acceso. Aquí está la
 parte del módulo que no se puede leer en un solo slice.
 
 | Carpeta | Qué vive aquí |
@@ -78,6 +79,12 @@ fija la forma de las tres sentencias: si alguien cambia el `lt` por un `lte` o q
 4. **cuenta las publicadas completadas dentro de la transacción** (`:139-145`);
 5. si `isCourseCompleted` dice que sí, sella `enrollments.completed_at` **con la guarda
    `completed_at: null`** (`:147-157`).
+
+Esa rama solo finaliza las lecciones. El certificado se emite en la transacción del examen,
+mediante `issueCourseCertificate`, que exige un intento aprobado del mismo alumno y curso.
+La unicidad por alumno/curso conserva el identificador, nombre, curso y fecha de la primera
+emisión incluso al desmarcar y completar otra vez. El select de inscripción incluye solo el id
+público del certificado; los mappers lo exponen como `certificate_id` o null.
 
 El paso 4 es la razón de que la política pura se llame **desde el repositorio** y no desde el
 service: el número que necesita solo existe dentro de la transacción, y sacarlo fuera abriría la

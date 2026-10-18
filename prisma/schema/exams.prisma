@@ -1,0 +1,34 @@
+model course_exams {
+  id            String   @id @default(cuid())
+  course_id     String   @unique
+  version       Int      @default(1)
+  enabled       Boolean  @default(false)
+  passing_score Int      @default(12)
+  questions     Json
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  course   courses         @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  attempts exam_attempts[]
+}
+
+model exam_attempts {
+  id                 String   @id @default(cuid())
+  exam_id            String
+  user_id            String
+  course_id          String
+  exam_version       Int
+  questions_snapshot Json
+  answers            Json
+  score              Int
+  passing_score      Int
+  passed             Boolean
+  submitted_at       DateTime @default(now())
+
+  exam        course_exams  @relation(fields: [exam_id], references: [id], onDelete: Cascade)
+  enrollment  enrollments   @relation(fields: [user_id, course_id], references: [user_id, course_id], onDelete: Cascade)
+  certificate certificates?
+
+  @@index([user_id, course_id, submitted_at])
+  @@index([exam_id])
+}

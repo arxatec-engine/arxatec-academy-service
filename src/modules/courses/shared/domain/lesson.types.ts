@@ -1,6 +1,7 @@
 import type { lesson_type, video_provider } from '@/generated/enums';
 
 export interface LessonLockedRecord {
+  id: string;
   slug: string;
   title: string;
   description: string;
@@ -28,6 +29,7 @@ export interface LessonUnlockedRecord extends LessonLockedRecord {
 }
 
 export interface ApiLessonLocked {
+  id: string;
   slug: string;
   title: string;
   description: string;
@@ -51,6 +53,7 @@ export interface ApiLessonResource {
 }
 
 export interface ApiLessonUnlocked {
+  id: string;
   slug: string;
   title: string;
   description: string;

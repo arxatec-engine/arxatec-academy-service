@@ -22,7 +22,7 @@ PUT /api/v1/me/avatar   (multipart/form-data, campo "file")
 | usuario → archivo → validación → service | `presentation/update_avatar.controller.ts:11-29` |
 | el archivo, sacado de `req` | `utils/uploaded_file.ts:16-33` |
 | reglas | `presentation/update_avatar.service.ts:14-45` |
-| escritura de la fila | `../../../shared/data/user_account.repository.ts:67-76` |
+| escritura de la fila | `../../../shared/data/user_account.repository.ts:63-72` |
 
 ## 2. Dos topes de tamaño, y hacen falta los dos
 

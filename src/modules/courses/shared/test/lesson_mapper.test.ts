@@ -10,6 +10,7 @@ import {
 } from '@/modules/courses/shared/domain/lesson_mapper';
 
 const LOCKED: LessonLockedRecord = {
+  id: 'locked-lesson-id',
   slug: 'las-cuatro-herramientas-que-ya-usas-sin-saberlo',
   title: 'Las cuatro herramientas que ya usas sin saberlo',
   description: 'Firma digital, notificaciones electrónicas y dos más.',
@@ -38,6 +39,7 @@ const VIDEO: LessonUnlockedRecord = {
 };
 
 const ARTICLE: LessonUnlockedRecord = {
+  id: 'article-lesson-id',
   slug: 'el-costo-oculto-de-trabajar-en-word-y-correo',
   title: 'El costo oculto de trabajar en Word y correo',
   description: 'Cuánto tiempo se pierde buscando la última versión.',
@@ -57,6 +59,7 @@ const ARTICLE: LessonUnlockedRecord = {
 describe('toApiLessonLocked · la forma bloqueada', () => {
   it('entrega lo que la pantalla necesita para pintar el muro', () => {
     expect(toApiLessonLocked(LOCKED)).toEqual({
+      id: LOCKED.id,
       slug: LOCKED.slug,
       title: LOCKED.title,
       description: LOCKED.description,
@@ -111,10 +114,11 @@ describe('toApiLessonUnlocked · la forma abierta', () => {
     expect(lesson.resources.map((resource) => resource.title)).toEqual(['Primero', 'Segundo']);
   });
 
-  it('no filtra el id interno de la lección ni el de sus recursos', () => {
+  it('expone el id de la lección para progreso y comentarios, pero no ids de recursos', () => {
     const serialized = JSON.stringify(toApiLessonUnlocked(VIDEO));
 
-    expect(serialized).not.toContain('"id"');
+    expect(toApiLessonUnlocked(VIDEO).id).toBe(VIDEO.id);
+    expect(serialized).not.toContain('"lesson_id"');
     expect(serialized).not.toContain('lesson_id');
     expect(serialized).not.toContain('course_id');
     expect(serialized).not.toContain('status');

@@ -20,13 +20,12 @@ jest.mock('@/modules/user/features/profile/update/presentation/update.service', 
   updateProfileService: jest.fn(),
 }));
 
-import { AuthHeaders } from '@/constants/auth';
+import { AuthHeaders, AuthPolicy } from '@/constants/auth';
 import { ApiPrefix, MeRoutePrefix, UserEndpoints } from '@/constants/endpoints';
 import { ErrorCodes } from '@/constants/error_codes';
 import { HttpStatusCodes } from '@/constants/http_status_codes';
 import { UserMessages } from '@/constants/messages/user';
 import { ValidationKeys } from '@/constants/validation_keys';
-import { user_city } from '@/generated/enums';
 import { findSessionById } from '@/modules/auth/shared/data/sessions.repository';
 import { updateProfileRouter } from '@/modules/user/features/profile/update/presentation/update.routes';
 import { apiUser } from '@/modules/user/shared/test/user_fixtures';
@@ -45,9 +44,6 @@ const ROUTE = `${ApiPrefix}${MeRoutePrefix}${UserEndpoints.profile}`;
 
 const BODY = {
   full_name: 'Maria Quispe Rojas',
-  organization: 'Estudio Quispe & Rojas',
-  is_independent: false,
-  city: user_city.LIMA,
 };
 
 const patch = (bearer: string | undefined, body: Record<string, unknown> = BODY) => {
@@ -73,57 +69,59 @@ describe('PATCH /me/profile', () => {
     });
   });
 
-  it('un email en el cuerpo se ignora en silencio: 200 y el service no lo ve', async () => {
+  it('ignora los campos retirados y usa el usuario de la sesión', async () => {
     const response = await patch(testBearer(), {
       ...BODY,
       email: 'otro@correo.test',
       role: 'ADMIN',
       id: 'usr_ajeno',
+      user_id: 'usr_ajeno',
+      organization: 'Estudio anterior',
+      is_independent: true,
+      city: 'OTHER',
+      city_other: null,
     });
 
     expect(response.status).toBe(HttpStatusCodes.OK.code);
     expect(updateProfileServiceMock).toHaveBeenCalledWith({
       user_id: TEST_USER_ID,
       full_name: BODY.full_name,
-      organization: BODY.organization,
-      is_independent: false,
-      city: user_city.LIMA,
-      city_other: undefined,
     });
   });
 
-  it('city OTHER sin city_other responde 422 con la clave i18n del campo', async () => {
+  it.each([undefined, '', '   ', 'A'])(
+    'rechaza un nombre ausente o inválido: %p',
+    async (full_name) => {
+      const response = await patch(testBearer(), { full_name });
+
+      expect(response.status).toBe(HttpStatusCodes.UNPROCESSABLE_ENTITY.code);
+      expect(response.body).toMatchObject({
+        meta: { fields: { full_name: ValidationKeys.auth.full_name_required } },
+      });
+      expect(updateProfileServiceMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it('recorta los espacios del nombre antes de llamar al service', async () => {
+    const response = await patch(testBearer(), { full_name: `  ${BODY.full_name}  ` });
+
+    expect(response.status).toBe(HttpStatusCodes.OK.code);
+    expect(updateProfileServiceMock).toHaveBeenCalledWith({
+      user_id: TEST_USER_ID,
+      full_name: BODY.full_name,
+    });
+  });
+
+  it('rechaza un nombre que supera el máximo del registro', async () => {
     const response = await patch(testBearer(), {
-      ...BODY,
-      city: user_city.OTHER,
+      full_name: 'A'.repeat(AuthPolicy.full_name_max_length + 1),
     });
 
     expect(response.status).toBe(HttpStatusCodes.UNPROCESSABLE_ENTITY.code);
     expect(response.body).toMatchObject({
-      meta: {
-        code: ErrorCodes.VALIDATION_ERROR,
-        fields: { city_other: ValidationKeys.auth.city_other_required },
-      },
+      meta: { fields: { full_name: ValidationKeys.auth.full_name_too_long } },
     });
     expect(updateProfileServiceMock).not.toHaveBeenCalled();
-  });
-
-  it('sin full_name responde 422 y no llega al service', async () => {
-    const response = await patch(testBearer(), { city: user_city.LIMA });
-
-    expect(response.status).toBe(HttpStatusCodes.UNPROCESSABLE_ENTITY.code);
-    expect(response.body).toMatchObject({
-      meta: { fields: { full_name: ValidationKeys.auth.full_name_required } },
-    });
-    expect(updateProfileServiceMock).not.toHaveBeenCalled();
-  });
-
-  it('is_independent ausente vale false, como en el registro', async () => {
-    await patch(testBearer(), { full_name: BODY.full_name, city: user_city.LIMA });
-
-    expect(updateProfileServiceMock).toHaveBeenCalledWith(
-      expect.objectContaining({ is_independent: false }),
-    );
   });
 
   it('sin sesion responde 401 UNAUTHENTICATED', async () => {

@@ -71,6 +71,7 @@ enum lesson_status {
 
 enum video_provider {
   VIMEO
+  YOUTUBE
 }
 
 // ---------------------------------------------------------------------------

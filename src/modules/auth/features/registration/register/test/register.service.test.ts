@@ -10,6 +10,7 @@ import { hashPassword } from '@/infrastructure/password/hash_password';
 import { createOneTimeToken } from '@/infrastructure/tokens/one_time_token';
 import {
   createEmailVerificationToken,
+  invalidateEmailVerificationToken,
   isEmailRegistered,
 } from '@/modules/auth/features/registration/register/data/register.repository';
 import type { RegisterCommand } from '@/modules/auth/features/registration/register/domain/register.types';
@@ -24,6 +25,7 @@ import { isAppError, type AppError } from '@/utils/errors';
 jest.mock('@/modules/auth/features/registration/register/data/register.repository', () => ({
   isEmailRegistered: jest.fn(),
   createEmailVerificationToken: jest.fn(),
+  invalidateEmailVerificationToken: jest.fn(),
 }));
 
 jest.mock('@/modules/auth/shared/data/users.repository', () => ({
@@ -60,6 +62,7 @@ jest.mock('@/config/logger', () => ({
 
 const isEmailRegisteredMock = jest.mocked(isEmailRegistered);
 const createEmailVerificationTokenMock = jest.mocked(createEmailVerificationToken);
+const invalidateEmailVerificationTokenMock = jest.mocked(invalidateEmailVerificationToken);
 const createUserMock = jest.mocked(createUser);
 const createSessionMock = jest.mocked(createSession);
 const hashPasswordMock = jest.mocked(hashPassword);
@@ -143,6 +146,7 @@ beforeEach(() => {
     id: 'tok_1',
     expires_at: new Date('2026-08-21T12:00:00.000Z'),
   });
+  invalidateEmailVerificationTokenMock.mockResolvedValue();
   buildVerificationEmailMock.mockReturnValue({
     subject: 'Verifica tu correo',
     html: '<p>enlace</p>',
@@ -163,6 +167,7 @@ describe('registerUser', () => {
       token: SESSION_TOKEN,
       expires_at: THIRTY_DAYS_LATER.toISOString(),
       user: expect.objectContaining({ id: user.id, email: user.email }),
+      verification_email_sent: true,
     });
   });
 
@@ -281,12 +286,14 @@ describe('registerUser', () => {
     });
   });
 
-  it('crea la cuenta y devuelve sesion aunque el envio del correo falle (D-002)', async () => {
+  it('conserva la cuenta y avisa que el correo no salio cuando falla SMTP', async () => {
     sendEmailMock.mockRejectedValue(new Error('smtp caido'));
 
     const result = await registerUser(buildCommand());
 
     expect(result.token).toBe(SESSION_TOKEN);
+    expect(result.verification_email_sent).toBe(false);
+    expect(invalidateEmailVerificationTokenMock).toHaveBeenCalledWith('tok_1');
     expect(createUserMock).toHaveBeenCalledTimes(1);
     expect(createSessionMock).toHaveBeenCalledTimes(1);
     expect(loggerErrorMock).toHaveBeenCalledTimes(1);
@@ -298,6 +305,7 @@ describe('registerUser', () => {
     const result = await registerUser(buildCommand());
 
     expect(result.token).toBe(SESSION_TOKEN);
+    expect(result.verification_email_sent).toBe(false);
     expect(sendEmailMock).not.toHaveBeenCalled();
     expect(loggerErrorMock).toHaveBeenCalledTimes(1);
   });

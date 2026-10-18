@@ -13,11 +13,29 @@ model enrollments {
   user        users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
   course      courses  @relation(fields: [course_id], references: [id], onDelete: Cascade)
   last_lesson lessons? @relation(fields: [last_lesson_id], references: [id], onDelete: SetNull)
+  certificate certificates?
+  exam_attempts exam_attempts[]
 
   @@unique([user_id, course_id])
   @@index([user_id, started_at])
   @@index([course_id])
   @@index([last_lesson_id])
+}
+
+model certificates {
+  id             String   @id @default(uuid()) @db.Uuid
+  user_id        String
+  course_id      String
+  recipient_name String   @db.VarChar(120)
+  course_title   String   @db.VarChar(140)
+  completed_at   DateTime
+  issued_at      DateTime @default(now())
+  exam_attempt_id String? @unique
+
+  enrollment enrollments @relation(fields: [user_id, course_id], references: [user_id, course_id], onDelete: Cascade)
+  exam_attempt exam_attempts? @relation(fields: [exam_attempt_id], references: [id], onDelete: SetNull)
+
+  @@unique([user_id, course_id])
 }
 
 model lesson_progress {

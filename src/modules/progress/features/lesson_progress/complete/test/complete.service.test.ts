@@ -99,6 +99,7 @@ describe('completeLessonService', () => {
       lesson_id: 'les_3',
       completed_at: SEALED_AT.toISOString(),
       enrollment: {
+        certificate_id: null,
         course: { slug: LESSON.course.slug, title: LESSON.course.title },
         started_at: STARTED_AT.toISOString(),
         completed_at: null,

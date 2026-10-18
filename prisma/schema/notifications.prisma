@@ -1,0 +1,34 @@
+model notification_signups {
+  id          String   @id @default(cuid())
+  email       String   @db.VarChar(254)
+  course_id   String?
+  user_id     String?
+  notified_at DateTime?
+  ip_hash     String?  @db.VarChar(64)
+  created_at  DateTime @default(now())
+
+  course courses? @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  user users? @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([email, course_id])
+  @@index([course_id, notified_at])
+  @@index([user_id])
+}
+
+model topic_requests {
+  id                     String   @id @default(cuid())
+  email                  String   @db.VarChar(254)
+  search_term            String   @db.VarChar(120)
+  search_term_normalized String   @db.VarChar(120)
+  request_count          Int      @default(1)
+  user_id                String?
+  ip_hash                String?  @db.VarChar(64)
+  created_at             DateTime @default(now())
+  last_requested_at      DateTime @default(now())
+
+  user users? @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([email, search_term_normalized])
+  @@index([search_term_normalized])
+  @@index([user_id])
+}

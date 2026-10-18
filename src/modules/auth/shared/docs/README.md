@@ -149,18 +149,16 @@ login, canje de Google y —parcialmente— `/me`.
 
 | Pieza | De dónde viene | Quién la usa ahora |
 | --- | --- | --- |
-| `domain/account_fields.schema.ts:12-44` | `features/registration/register/domain/register.schema.ts` | el registro y `PATCH /me/profile` |
-| `domain/account_fields.ts:23-31` | `features/registration/register/utils/resolve_account_fields.ts` | ídem |
+| `domain/account_fields.schema.ts:12-44` | `features/registration/register/domain/register.schema.ts` | el registro; `PATCH /me/profile` reutiliza solo `full_name` |
+| `domain/account_fields.ts:23-31` | `features/registration/register/utils/resolve_account_fields.ts` | el registro |
 | `data/sessions.repository.ts:74-84` | nueva | `PATCH /me/password` |
 | `data/auth_artifacts.repository.ts:4-11` | nueva | `DELETE /me` |
 
-**`accountProfileShape` y `requireCityOther`** son las reglas de los cinco campos que comparten el
-formulario de registro y el de perfil: máximos del nombre y de la organización, lista de ciudades
-y el `city_other` obligatorio con `city: OTHER`. Se exportan como **shape**, no como schema
-cerrado, porque cada formulario le añade lo suyo —el registro, correo y contraseña; el perfil, el
-`user_id` de la sesión— y en Zod 4 un `.superRefine` ya no se puede extender: el `refine` se aplica
-al final, en cada `z.object` (`register.schema.ts:25-31`,
-`src/modules/user/features/profile/update/domain/update.schema.ts:9-14`).
+**`accountProfileShape`** contiene las reglas de los datos de registro. Se exporta como **shape**
+para reutilizar sus campos individualmente: el perfil usa solo `full_name` y añade el
+`user_id` de la sesión (`src/modules/user/features/profile/update/domain/update.schema.ts:6-9`).
+**`requireCityOther`** se aplica al registro cuando el cliente proporciona explícitamente ciudad
+`OTHER`; el formulario de perfil ya no solicita ciudad ni organización.
 
 **`revokeOtherUserSessions`** es la hermana de `revokeAllUserSessions` con un `id: { not: … }`, y
 existe porque cambiar la contraseña estando dentro **no** debe cerrar la sesión que la está

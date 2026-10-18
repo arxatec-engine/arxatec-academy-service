@@ -70,13 +70,18 @@ export const getMyCoursesService = async (
     if (isEnrollmentFinished(enrollment, progress.is_completed)) {
       completed.push({
         completed_at: enrollment.completed_at,
-        course: toApiMyCourseCompleted(course, progress, enrollment.completed_at),
+        course: toApiMyCourseCompleted(
+          course,
+          progress,
+          enrollment.completed_at,
+          enrollment.certificate?.id ?? null,
+        ),
       });
 
       continue;
     }
 
-    in_progress.push(toApiMyCourseInProgress(course, progress));
+    in_progress.push(toApiMyCourseInProgress(course, progress, enrollment.certificate?.id ?? null));
   }
 
   return {

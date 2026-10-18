@@ -38,17 +38,13 @@ lo suyo) y en `tests/integration/postgres/account_flow.test.ts`.
 | revocación de sesiones | `revokeOtherUserSessions`, `src/modules/auth/shared/data/sessions.repository.ts:74-84` |
 | borrado de sesiones, tokens y cuentas OAuth | `src/modules/auth/shared/data/auth_artifacts.repository.ts:4-11` |
 | forma del usuario en la API | `src/modules/auth/shared/domain/user_mapper.ts:3-16` |
-| reglas de los campos del perfil | `src/modules/auth/shared/domain/account_fields.schema.ts:12-44` |
-| `is_independent` → `organization: null` | `src/modules/auth/shared/domain/account_fields.ts:23-31` |
+| validación del nombre del perfil | `accountProfileShape.full_name`, `src/modules/auth/shared/domain/account_fields.schema.ts:12-17` |
 | plantilla del aviso de cambio de contraseña | `src/infrastructure/email/templates/password_changed_email.ts:5-11` |
 
-Las dos últimas piezas **se mudaron** en esta fase desde el slice de registro
-(`features/registration/register/{domain/register.schema.ts,utils/resolve_account_fields.ts}`) a
-`modules/auth/shared/domain/`, porque a partir de ahora las usan dos módulos y la superficie
-sancionada entre módulos es `modules/<m>/shared/` (`02_reglas_backend.md` §9.3). El registro las
-importa desde su casa nueva (`register.schema.ts:4-7`, `register.service.ts:24`), así que **la
-regla vive en un solo sitio**: si mañana cambia el máximo del nombre, cambia en los dos
-formularios a la vez.
+El perfil reutiliza la validación del nombre de `modules/auth/shared/domain/`
+(`features/profile/update/domain/update.schema.ts:6-9`). La actualización acepta solo
+`full_name`; organización, condición de independiente y ciudad ya no forman parte del
+formulario ni del contrato de escritura.
 
 ## 3. La frontera con `progress` y con `comments`, para la baja de cuenta
 
@@ -61,7 +57,7 @@ transacción como segundo parámetro.
 | `lesson_progress`, `enrollments` | `modules/progress` | `deleteUserProgress`, `src/modules/progress/shared/data/progress.repository.ts:197-203` |
 | `comment_reports`, `comments` | `modules/comments` | `deleteUserComments`, `src/modules/comments/shared/data/comments.repository.ts:79-85` |
 | `auth_sessions`, `auth_tokens`, `oauth_accounts` | `modules/auth` | `deleteUserAuthArtifacts`, `src/modules/auth/shared/data/auth_artifacts.repository.ts:4-11` |
-| `users` | este módulo | `shared/data/user_account.repository.ts:97-105` |
+| `users` | este módulo | `shared/data/user_account.repository.ts:93-101` |
 
 `countCompletedEnrollments` (`progress.repository.ts:194-195`) es la otra fachada que se amplió,
 para el pie de la pantalla. `pnpm boundaries` verifica que aquí no entre ningún `data/` privado, y
@@ -94,9 +90,8 @@ Google se sigue viendo y **no se intenta borrar**, que es exactamente lo correct
 | el `404` de un usuario que ya no está | `shared/domain/user_not_found.ts:6-9` | contraseña, avatar, baja y resumen |
 | formas de la fila y de la entrada | `shared/domain/user_account.types.ts` | todos |
 
-**No hay `shared/policy/`**: las tres reglas de dominio de este módulo —limpiar organización,
-exigir `city_other` y validar un archivo— ya viven en `modules/auth/shared/domain` y en
-`infrastructure/storage`, y duplicar una envoltura aquí sería ceremonia.
+**No hay `shared/policy/`**: la validación del nombre y la de archivos ya viven en
+`modules/auth/shared/domain` y en `infrastructure/storage`; no necesitan otra envoltura aquí.
 
 ## 6. Lo que este módulo deja abierto
 

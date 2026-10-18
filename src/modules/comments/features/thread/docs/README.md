@@ -24,12 +24,9 @@ distingue el método.
 
 ## 2. Lo que comparten las tres
 
-El cuerpo (1 a 2 000 caracteres, recortado, texto plano) está escrito **dos veces**, en
-`create/domain/create.schema.ts:12-17` y en `reply/domain/reply.schema.ts:12-17`, apoyándose las
-dos en `CommentPolicy` y en las mismas claves i18n. No se factorizó a un schema compartido a
-propósito: son dos contratos de entrada distintos —uno lleva `lesson_id`, el otro `comment_id`— y
-`02_reglas_backend.md` §3 pone el schema en el `domain/` de su action. Los números y los textos, que
-es lo que de verdad no puede divergir, sí están en un solo sitio (`src/constants/comments.ts`).
+El cuerpo (1 a 2 000 caracteres, recortado, texto plano) se valida en
+`src/modules/comments/shared/domain/comment_body.schema.ts:1-8` para las respuestas públicas y
+las del panel de moderación. El schema de cada action conserva sus otros campos propios.
 
 Lo que sí se comparte es todo lo que va después: el mapper del autor, los guardianes y el
 repositorio, en `../../shared/` (ver su `docs/README.md`).

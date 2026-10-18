@@ -27,7 +27,7 @@ const envSchema = z
     GOOGLE_CLIENT_SECRET: z.string().optional(),
     GOOGLE_CALLBACK_URL: z.url(),
 
-    EMAIL_TRANSPORT: z.enum(['log', 'smtp']).default('log'),
+    EMAIL_TRANSPORT: z.enum(['log', 'smtp']).default(process.env['NODE_ENV'] === 'test' ? 'log' : 'smtp'),
     EMAIL_FROM: z.string().min(1),
     SMTP_HOST: z.string().optional(),
     SMTP_PORT: z.coerce.number().int().positive().max(65535).default(587),
@@ -38,6 +38,11 @@ const envSchema = z
     STORAGE_DRIVER: z.enum([StorageDrivers.local, StorageDrivers.s3]).default(StorageDrivers.local),
     STORAGE_LOCAL_PATH: z.string().min(1).default('storage'),
     STORAGE_PUBLIC_URL: z.url().default('http://localhost:3001/files'),
+    VIDEO_PROVIDER_DRIVER: z.enum(['live', 'fake', 'vimeo']).default(process.env['NODE_ENV'] === 'production' ? 'live' : 'fake'),
+    VIDEO_PROBE_TIMEOUT_MS: z.coerce.number().int().positive().default(3000),
+    REPORTING_UTC_OFFSET_MINUTES: z.coerce.number().int().default(-300),
+    ADMIN_EXPORT_MAX_ROWS: z.coerce.number().int().positive().default(50000),
+    NOTIFICATIONS_IP_HASH_SALT: z.string().min(16).default('local-notifications-salt-change-me'),
 
     AWS_REGION: z.string().optional(),
     AWS_S3_BUCKET: z.string().optional(),
@@ -45,6 +50,12 @@ const envSchema = z
     AWS_SECRET_ACCESS_KEY: z.string().optional(),
   })
   .superRefine((value, ctx) => {
+    if (value.NODE_ENV !== 'test' && value.EMAIL_TRANSPORT !== 'smtp') {
+      ctx.addIssue({ code: 'custom', path: ['EMAIL_TRANSPORT'], message: SystemMessages.env_invalid });
+    }
+    if (value.NODE_ENV === 'production' && value.NOTIFICATIONS_IP_HASH_SALT === 'local-notifications-salt-change-me') {
+      ctx.addIssue({ code: 'custom', path: ['NOTIFICATIONS_IP_HASH_SALT'], message: SystemMessages.env_invalid });
+    }
     if (value.EMAIL_TRANSPORT === 'smtp') {
       for (const key of ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASSWORD'] as const) {
         if (value[key] === undefined || value[key].length === 0) {

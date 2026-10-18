@@ -52,6 +52,7 @@ const path = `${ApiPrefix}${CoursesRoutePrefix}/${SLUG}`;
 const NOW = new Date();
 
 const COURSE: CourseDetailRecord = {
+  teacher: null,
   id: 'crs_1',
   slug: SLUG,
   title: 'Fundamentos de legal tech',
@@ -64,6 +65,7 @@ const COURSE: CourseDetailRecord = {
 
 const LESSONS: readonly LessonSummaryRecord[] = [
   {
+    id: 'lesson-1',
     slug: 'que-es-legal-tech-y-que-no',
     title: 'Qué es legal tech y qué no',
     description: 'Separamos tres cosas que suelen ir revueltas.',
@@ -74,6 +76,7 @@ const LESSONS: readonly LessonSummaryRecord[] = [
     is_free_sample: true,
   },
   {
+    id: 'lesson-2',
     slug: 'el-costo-oculto-de-trabajar-en-word-y-correo',
     title: 'El costo oculto de trabajar en Word y correo',
     description: 'Cuánto tiempo se pierde buscando la última versión.',

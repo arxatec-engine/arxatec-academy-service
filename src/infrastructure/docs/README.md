@@ -137,16 +137,15 @@ reexporta, y `no-config-barrel` (`.dependency-cruiser.cjs:31-37`) impide que alg
 
 `sendEmail` (`src/infrastructure/email/send_email.ts:30`) elige transporte por `EMAIL_TRANSPORT`:
 
-- **`log`** → el correo entero se escribe con Pino. Es lo que permite recorrer registro →
-  verificación → recuperación **sin cuenta SMTP** (contrato §8).
+- **`log`** → el correo se escribe con Pino solo en pruebas (`NODE_ENV=test`), sin entrega real.
 - **`smtp`** → nodemailer, y el `env` ya obligó a que `SMTP_HOST`, `SMTP_USER` y `SMTP_PASSWORD`
   existan al arrancar (`src/config/env.ts:37-47`).
 
 **El único sitio donde un token toca el log, y su freno.** El cuerpo del correo lleva el enlace, y
 el enlace lleva el token. Registrarlo contradice literalmente `01_reglas_globales.md` §8.6, así que
 el cuerpo se omite cuando `isProduction` (`src/infrastructure/email/send_email.ts:7-16`): en
-desarrollo el enlace se lee del log, en producción la línea solo lleva destinatario y asunto.
-Comprobado ejecutando el mismo envío con `NODE_ENV=production`: el token no aparece.
+pruebas el enlace se puede leer del log; en producción el transporte es SMTP y el logger solo
+registra destinatario y asunto.
 
 **Ninguna plantilla loguea nada.** Las tres son funciones puras que devuelven `{ subject, html, text }`
 (`src/infrastructure/email/email.types.ts:1-5`); la única que escribe es `sendEmail`.

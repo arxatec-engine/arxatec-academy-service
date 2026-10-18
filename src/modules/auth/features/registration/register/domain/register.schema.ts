@@ -2,20 +2,12 @@ import { z } from 'zod';
 
 import { AuthPolicy } from '@/constants/auth';
 import { ValidationKeys } from '@/constants/validation_keys';
+import { user_city } from '@/generated/enums';
 import {
   accountProfileShape,
   requireCityOther,
 } from '@/modules/auth/shared/domain/account_fields.schema';
-import { normalizeEmail } from '@/modules/auth/shared/domain/normalize_email';
-
-const emailSchema = z
-  .string(ValidationKeys.auth.email_invalid)
-  .transform(normalizeEmail)
-  .pipe(
-    z
-      .email(ValidationKeys.auth.email_invalid)
-      .max(AuthPolicy.email_max_length, ValidationKeys.auth.email_too_long),
-  );
+import { emailSchema } from '@/utils/email_schema';
 
 const passwordSchema = z
   .string(ValidationKeys.auth.password_too_short)
@@ -25,7 +17,13 @@ const passwordSchema = z
 export const registerSchema = z
   .object({
     ...accountProfileShape,
+    city: accountProfileShape.city.optional(),
     email: emailSchema,
     password: passwordSchema,
   })
-  .superRefine(requireCityOther);
+  .superRefine((values, ctx) => {
+    if (values.city !== undefined) {
+      requireCityOther({ ...values, city: values.city }, ctx);
+    }
+  })
+  .transform((values) => ({ ...values, city: values.city ?? user_city.OTHER }));

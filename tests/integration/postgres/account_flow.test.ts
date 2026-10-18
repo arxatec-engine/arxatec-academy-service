@@ -185,15 +185,12 @@ afterAll(async () => {
 });
 
 describe('perfil y baja de cuenta contra PostgreSQL real', () => {
-  it('1. PATCH /me/profile guarda los cambios y devuelve el usuario del contrato', async () => {
+  it('1. PATCH /me/profile guarda el nombre sin pedir ciudad ni organización', async () => {
     const response = await request(app)
       .patch(mePath('profile'))
       .set(AuthHeaders.authorization, bearer(state.owner.token))
       .send({
         full_name: 'Titular Editado',
-        organization: 'Estudio Editado',
-        is_independent: false,
-        city: user_city.AREQUIPA,
       });
 
     expect(response.status).toBe(HttpStatusCodes.OK.code);
@@ -201,8 +198,8 @@ describe('perfil y baja de cuenta contra PostgreSQL real', () => {
     const data = userDataSchema.parse(envelopeSchema.parse(response.body).data);
 
     expect(data.user.full_name).toBe('Titular Editado');
-    expect(data.user.organization).toBe('Estudio Editado');
-    expect(data.user.city).toBe(user_city.AREQUIPA);
+    expect(data.user.organization).toBe('Estudio Titular');
+    expect(data.user.city).toBe(user_city.LIMA);
   });
 
   it('2. un email en el cuerpo se ignora en silencio: 200 y el correo intacto en la base', async () => {
@@ -211,9 +208,6 @@ describe('perfil y baja de cuenta contra PostgreSQL real', () => {
       .set(AuthHeaders.authorization, bearer(state.owner.token))
       .send({
         full_name: 'Titular Editado',
-        organization: 'Estudio Editado',
-        is_independent: false,
-        city: user_city.AREQUIPA,
         email: 'secuestrado@atacante.test',
       });
 
@@ -227,35 +221,42 @@ describe('perfil y baja de cuenta contra PostgreSQL real', () => {
     expect(row.email).toBe(OWNER_EMAIL);
   });
 
-  it('3. is_independent: true limpia la organizacion en la base', async () => {
-    await request(app)
+  it('3. los campos retirados del perfil se ignoran sin sobrescribir datos anteriores', async () => {
+    const response = await request(app)
       .patch(mePath('profile'))
       .set(AuthHeaders.authorization, bearer(state.owner.token))
       .send({
         full_name: 'Titular Editado',
-        organization: 'Esta Organizacion Se Va',
+        organization: 'Otra Organización',
         is_independent: true,
         city: user_city.OTHER,
         city_other: 'Cusco',
       });
 
+    expect(response.status).toBe(HttpStatusCodes.OK.code);
+
     const row = await prisma.users.findUniqueOrThrow({
       where: { id: state.owner.id },
-      select: { organization: true, is_independent: true, city_other: true },
+      select: { organization: true, is_independent: true, city: true, city_other: true },
     });
 
-    expect(row).toEqual({ organization: null, is_independent: true, city_other: 'Cusco' });
+    expect(row).toEqual({
+      organization: 'Estudio Titular',
+      is_independent: false,
+      city: user_city.LIMA,
+      city_other: null,
+    });
   });
 
-  it('4. city OTHER sin city_other responde 422', async () => {
+  it('4. un perfil sin nombre responde 422', async () => {
     const response = await request(app)
       .patch(mePath('profile'))
       .set(AuthHeaders.authorization, bearer(state.owner.token))
-      .send({ full_name: 'Titular Editado', is_independent: true, city: user_city.OTHER });
+      .send({});
 
     expect(response.status).toBe(HttpStatusCodes.UNPROCESSABLE_ENTITY.code);
-    expect(envelopeSchema.parse(response.body).meta?.fields?.['city_other']).toBe(
-      ValidationKeys.auth.city_other_required,
+    expect(envelopeSchema.parse(response.body).meta?.fields?.['full_name']).toBe(
+      ValidationKeys.auth.full_name_required,
     );
   });
 

@@ -67,7 +67,7 @@ service. Se eligió la segunda, y el reparto queda así:
 - **SQL filtra lo que sabe comparar exactamente**: `status`, `topic` y `level` son enums, y van en
   el `where` (`src/modules/courses/shared/data/courses.repository.ts:94-106`).
 - **El service filtra lo que exige normalizar**: título y descripción corta, con acentos
-  descompuestos y descartados (`utils/normalize_search.ts:4-5`).
+  descompuestos y descartados (`src/utils/normalize_search.ts:1-2`).
 
 `unaccent` es una extensión de PostgreSQL: exige una migración con `CREATE EXTENSION`, obliga a
 bajar la consulta a SQL crudo —perdiendo el `select` tipado que es la garantía de esta fase— y

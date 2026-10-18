@@ -4,7 +4,7 @@ import type { RotateEmailVerificationTokenInput } from '@/modules/auth/features/
 
 export const findLastEmailVerificationSentAt = async (user_id: string): Promise<Date | null> => {
   const token = await prisma.auth_tokens.findFirst({
-    where: { user_id, type: auth_token_type.EMAIL_VERIFICATION },
+    where: { user_id, type: auth_token_type.EMAIL_VERIFICATION, consumed_at: null },
     orderBy: { created_at: 'desc' },
     select: { created_at: true },
   });
@@ -35,4 +35,11 @@ export const rotateEmailVerificationToken = async ({
   ]);
 
   return created.id;
+};
+
+export const invalidateResentVerificationToken = async (token_id: string): Promise<void> => {
+  await prisma.auth_tokens.updateMany({
+    where: { id: token_id, consumed_at: null },
+    data: { consumed_at: new Date() },
+  });
 };

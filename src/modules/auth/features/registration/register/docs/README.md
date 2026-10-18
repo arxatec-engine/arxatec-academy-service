@@ -16,7 +16,7 @@ POST /auth/register
       createUser               shared/data          (users.repository.ts:52)
       createSession            shared/data          (sessions.repository.ts:44)
       signSessionToken         HS256, jti = sesión
-      sendVerificationEmail    best effort (D-002)  (register.service.ts:68-78)
+      sendVerificationEmail    best effort (D-002), con resultado de entrega
   201 + buildHttpResponse      (register.controller.ts:20-27)
 ```
 
@@ -35,8 +35,12 @@ POST /auth/register
 | `password` | 8–128 (`:23-26`) | `password_too_short` / `password_too_long` |
 | `organization` | opcional, recortado, ≤ 160 (`:28-32`) | `organization_too_long` |
 | `is_independent` | opcional, **default `false`** (`:46`) | `errors.validation.invalid` |
-| `city` | enum de Prisma (`:47`) | `city_invalid` |
-| `city_other` | opcional, ≤ 80; **obligatorio si `city === OTHER`** (`:50-62`) | `city_other_required` |
+| `city` | enum de Prisma opcional; si se omite se guarda `OTHER` | `city_invalid` |
+| `city_other` | opcional, ≤ 80; obligatorio si el cliente envía explícitamente `city === OTHER` | `city_other_required` |
+
+El frontend solo recoge `full_name`, `email` y `password` al crear una cuenta. El schema acepta
+el alta sin datos de organización ni ciudad. Los valores de perfil se conservan en la respuesta
+y pueden completarse después; las validaciones del perfil no cambian.
 
 **El mínimo de 8 no es un número suelto**: sale de `AuthPolicy.password_min_length`
 (`src/constants/auth.ts:12`), que es el mismo valor que pinta el hint de la pantalla 02 del
@@ -112,7 +116,9 @@ existe, y el middleware lo trataría como `SESSION_EXPIRED` sin que nadie entien
 **(e) El correo de verificación es "mejor esfuerzo", y esto es la trampa del slice** (`:103-107`).
 D-002 decidió enviar el correo dentro de la petición, sin cola. La consecuencia obligatoria es que
 **un SMTP caído no puede tumbar el registro**: la cuenta ya está creada y la sesión ya está abierta,
-así que el fallo se registra con Pino y la respuesta sigue siendo `201`. El usuario entra al
+así que el fallo se registra con Pino y la respuesta sigue siendo `201`, con
+`verification_email_sent: false`. El token fallido se invalida para permitir el reenvío inmediato.
+El usuario entra al
 producto sin verificar —lo que D-006 permite explícitamente— y reenvía el enlace desde la pantalla
 07 (`POST /auth/email/resend`). El `try` cubre **también** el `INSERT` del token
 (`:71-75`): si falla la escritura, el reenvío creará otro token y no pasa nada; si en cambio
@@ -147,7 +153,7 @@ devuelven el `select` sin `password_hash`.
   "status": 201, "message": "Created",
   "description": "Cuenta creada correctamente",
   "path": "/api/v1/auth/register",
-  "data": { "token": "eyJ…", "expires_at": "2026-09-19T12:00:00.000Z", "user": { } }
+  "data": { "token": "eyJ…", "expires_at": "2026-09-19T12:00:00.000Z", "user": { }, "verification_email_sent": true }
 }
 ```
 

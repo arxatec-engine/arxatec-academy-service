@@ -1,5 +1,3 @@
-import type { user_city } from '@/generated/enums';
-
 export interface UserCredentialsRecord {
   id: string;
   email: string;
@@ -17,10 +15,6 @@ export interface UserSummaryRecord {
 export interface UpdateUserProfileInput {
   user_id: string;
   full_name: string;
-  organization: string | null;
-  is_independent: boolean;
-  city: user_city;
-  city_other: string | null;
 }
 
 export interface ChangeUserPasswordInput {

@@ -19,6 +19,7 @@ interface ResolvedError {
   status: HttpStatus;
   description: string;
   meta: HttpResponseMeta;
+  data?: unknown;
 }
 
 const STATUS_BY_CODE = new Map<number, HttpStatus>(
@@ -77,6 +78,7 @@ const resolveError = (error: unknown): ResolvedError => {
       status: toStatus(error.statusCode),
       description: error.message,
       meta: error.meta ?? { code: ErrorCodes.INTERNAL_ERROR },
+      data: error.data,
     };
   }
 
@@ -157,7 +159,7 @@ export const errorHandler = (
     err: error,
     request_id: req.request_id,
     method: req.method,
-    path: req.originalUrl,
+    path: req.path,
     status: resolved.status.code,
     code: resolved.meta.code,
   };
@@ -174,6 +176,7 @@ export const errorHandler = (
       description: resolved.description,
       path: req.originalUrl,
       meta: resolved.meta,
+      data: resolved.data,
     }),
   );
 };

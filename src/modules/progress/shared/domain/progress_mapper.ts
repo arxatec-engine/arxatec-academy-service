@@ -28,6 +28,7 @@ export const toApiEnrollment = (
   progress: CourseProgress,
 ): ApiEnrollment => ({
   course: toApiProgressCourse(course),
+  certificate_id: enrollment.certificate?.id ?? null,
   started_at: enrollment.started_at.toISOString(),
   completed_at: enrollment.completed_at === null ? null : enrollment.completed_at.toISOString(),
   completed_lessons: progress.completed_lessons,
@@ -45,8 +46,10 @@ export const toApiLessonProgress = (progress: LessonProgressRecord): ApiLessonPr
 export const toApiMyCourseInProgress = (
   course: CourseRefRecord,
   progress: CourseProgress,
+  certificate_id: string | null = null,
 ): ApiMyCourseInProgress => ({
   course: toApiProgressCourse(course),
+  certificate_id,
   completed_lessons: progress.completed_lessons,
   lesson_count: progress.lesson_count,
   next_lesson: toApiNextLesson(progress.next_lesson),
@@ -56,8 +59,10 @@ export const toApiMyCourseCompleted = (
   course: CourseRefRecord,
   progress: CourseProgress,
   completed_at: Date,
+  certificate_id: string | null = null,
 ): ApiMyCourseCompleted => ({
   course: toApiProgressCourse(course),
+  certificate_id,
   lesson_count: progress.lesson_count,
   completed_at: completed_at.toISOString(),
 });

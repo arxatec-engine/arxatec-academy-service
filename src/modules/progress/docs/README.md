@@ -14,17 +14,23 @@ index.ts:12                  progressRouter.use(MeRoutePrefix, myCoursesRouter)
 | Método | Ruta | Auth | Feature |
 | --- | --- | --- | --- |
 | `POST` | `/api/v1/courses/:slug/enroll` | Bearer | `enrollment/create` |
+| `GET` | `/api/v1/courses/:slug/exam` | Bearer | `exams/get_detail` |
+| `POST` | `/api/v1/courses/:slug/exam/attempts` | Bearer | `exams/submit` |
 | `PUT` | `/api/v1/lessons/:lesson_id/progress` | Bearer + 1/s | `lesson_progress/update` |
 | `POST` | `/api/v1/lessons/:lesson_id/complete` | Bearer | `lesson_progress/complete` |
 | `DELETE` | `/api/v1/lessons/:lesson_id/complete` | Bearer | `lesson_progress/uncomplete` |
 | `GET` | `/api/v1/me/courses` | Bearer | `my_courses/get_list` |
+| `GET` | `/api/v1/certificates/:id` | Público | `certificates/get_detail` |
+| `GET` | `/api/v1/certificates/:id/pdf` | Público | `certificates/download` |
 
 ## 1. Por qué el módulo se monta en `ApiPrefix` y no en un prefijo propio
 
-Sus cinco rutas cuelgan de **tres** prefijos distintos —`/courses`, `/lessons` y `/me`— porque
+Sus rutas de inscripción y avance cuelgan de **tres** prefijos distintos —`/courses`, `/lessons` y `/me`— porque
 están escritas desde el punto de vista del alumno, no del módulo: "empezar **este curso**",
 "guardar **esta lección**", "**mis** cursos". Un `/progress/...` sería un prefijo que nombra la
 tabla, no la acción.
+
+Los certificados añaden el prefijo público `/certificates`, dentro del mismo módulo.
 
 Por eso `src/routes/index.ts:14` lo monta con `ApiPrefix` a secas y el prefijo de cada grupo se
 pone en `index.ts:10-12`, una sola vez, con las constantes de `src/constants/endpoints.ts:23`,
@@ -50,8 +56,15 @@ salen tres cosas y ninguna más:
 Y una regla: `canViewLesson` (`../courses/shared/policy/lesson_access.ts:6-7`), que **no se
 duplica** — se compone dentro de `shared/policy/lesson_marking.ts:10-16`.
 
-Este módulo escribe **solo** en sus dos tablas (`enrollments` y `lesson_progress`). No toca
-`courses` ni `lessons` ni siquiera para leer un contador: el contador se calcula.
+Este módulo escribe en `enrollments`, `lesson_progress`, `course_exams`, `exam_attempts` y `certificates`. No modifica
+`courses` ni `lessons`; los contadores se calculan desde las lecciones publicadas.
+
+Los certificados nuevos exigen aprobar el examen de 15 preguntas, con 12 aciertos como mínimo
+inicial. Se emiten en la transacción que guarda el intento aprobado, después de completar las
+lecciones. El examen se configura desde administración; véase [exámenes](../features/exams/docs/README.md).
+Los certificados se verifican sin sesión
+en `GET /api/v1/certificates/:id`; `/pdf` entrega el documento con QR. Véase
+[certificados](../features/certificates/docs/README.md) para el contrato y la preservación histórica.
 
 ## 3. Las dos tablas y por qué son como son
 

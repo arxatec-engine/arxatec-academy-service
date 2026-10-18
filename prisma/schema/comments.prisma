@@ -9,11 +9,17 @@ model comments {
   parent_id  String?
   body       String
   status     comment_status @default(VISIBLE)
+  hidden_at  DateTime?
+  hidden_by_user_id String?
+  deleted_at DateTime?
+  deleted_by_user_id String?
   created_at DateTime       @default(now())
   updated_at DateTime       @updatedAt
 
   lesson  lessons           @relation(fields: [lesson_id], references: [id], onDelete: Cascade)
-  user    users?            @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  user    users?            @relation("comment_author", fields: [user_id], references: [id], onDelete: SetNull)
+  hidden_by users?          @relation("comment_hidden_by", fields: [hidden_by_user_id], references: [id], onDelete: SetNull)
+  deleted_by users?         @relation("comment_deleted_by", fields: [deleted_by_user_id], references: [id], onDelete: SetNull)
   parent  comments?         @relation("comment_replies", fields: [parent_id], references: [id], onDelete: Cascade)
   replies comments[]        @relation("comment_replies")
   reports comment_reports[]
@@ -21,6 +27,8 @@ model comments {
   @@index([lesson_id, status, created_at])
   @@index([parent_id])
   @@index([user_id])
+  @@index([status, created_at])
+  @@index([status, hidden_at])
 }
 
 model comment_reports {
@@ -29,10 +37,14 @@ model comment_reports {
   reported_by_user_id String
   reason              String?  @db.VarChar(280)
   created_at          DateTime @default(now())
+  reviewed_at         DateTime?
+  reviewed_by_user_id String?
 
   comment     comments @relation(fields: [comment_id], references: [id], onDelete: Cascade)
   reported_by users    @relation(fields: [reported_by_user_id], references: [id], onDelete: Cascade)
+  reviewed_by users?   @relation("report_reviewer", fields: [reviewed_by_user_id], references: [id], onDelete: SetNull)
 
   @@unique([comment_id, reported_by_user_id])
   @@index([reported_by_user_id])
+  @@index([comment_id, reviewed_at])
 }

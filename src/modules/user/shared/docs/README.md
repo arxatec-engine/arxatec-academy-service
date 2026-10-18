@@ -21,19 +21,19 @@ a una respuesta sería escribirlo a mano. `USER_PROFILE_SELECT`, que sí se seri
 hay un test que compara la lista de claves entera
 (`../test/user_account_repository.test.ts`, *"nunca pide password_hash"*).
 
-`updateUserProfile` (`:53-65`) escribe **cinco columnas** y `email` no está entre ellas. Esa es la
-segunda mitad de "el correo no se cambia por aquí": aunque un cuerpo malicioso lo trajera y el
-controller lo leyera, el `data` del `update` no lo lleva.
+`updateUserProfile` (`:53-61`) escribe únicamente **`full_name`**. El formulario ya no solicita
+organización, condición de independiente ni ciudad. El `data` del `update` tampoco incluye el
+correo ni otros campos de la cuenta.
 
 ## 2. Las dos transacciones
 
-**`changeUserPassword` (`:78-95`)** guarda el hash nuevo y revoca las demás sesiones **en la
+**`changeUserPassword` (`:74-91`)** guarda el hash nuevo y revoca las demás sesiones **en la
 misma transacción**. Si fueran dos escrituras sueltas y la segunda fallara, la contraseña habría
 cambiado y las sesiones robadas seguirían vivas — justo el estado que el cambio quiere evitar.
 La revocación no se reimplementa: llama a `revokeOtherUserSessions`
 (`@/modules/auth/shared/data/sessions.repository.ts:74-84`) pasándole el `tx`.
 
-**`deleteUserAccount` (`:97-105`)** borra en el orden que fija la fase: progreso → comentarios →
+**`deleteUserAccount` (`:93-101`)** borra en el orden que fija la fase: progreso → comentarios →
 sesiones/tokens/OAuth → la fila de `users`. El porqué del orden y del borrado real está en
 `../../features/account/delete/docs/README.md`.
 

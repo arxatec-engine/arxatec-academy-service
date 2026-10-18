@@ -21,7 +21,7 @@ DELETE /api/v1/me      { "password": "…" }  (las cuentas de Google no lo manda
 | cadena de la ruta | `presentation/delete.routes.ts:9` |
 | usuario → validación → service → respuesta | `presentation/delete.controller.ts:9-19` |
 | reglas | `presentation/delete.service.ts:33-48` |
-| la transacción | `../../../shared/data/user_account.repository.ts:97-105` |
+| la transacción | `../../../shared/data/user_account.repository.ts:93-101` |
 
 ## 2. Borrado de verdad, no un `deleted_at`
 
@@ -34,9 +34,10 @@ tenía inscripción, progreso, comentario y reporte.
 
 ## 3. El orden de la transacción, y por qué es ése
 
-`../../../shared/data/user_account.repository.ts:98-104`:
+`../../../shared/data/user_account.repository.ts:94-100`:
 
 1. `lesson_progress` y `enrollments` — `deleteUserProgress` (`modules/progress/shared`);
+   los certificados se eliminan en cascada al borrar las inscripciones y sus enlaces públicos devuelven 404;
 2. `comments` y `comment_reports` — `deleteUserComments` (`modules/comments/shared`);
 3. `auth_sessions`, `auth_tokens` y `oauth_accounts` — `deleteUserAuthArtifacts` (`modules/auth/shared`);
 4. la fila de `users`.
@@ -53,7 +54,7 @@ Dentro de cada paso también hay orden: los reportes **antes** que los comentari
 (`src/modules/comments/shared/test/comments_repository.test.ts`,
 `src/modules/progress/shared/test/progress_repository.test.ts`).
 
-**Todo en una sola transacción** (`prisma.$transaction`, `:98`). Media baja —comentarios borrados
+**Todo en una sola transacción** (`prisma.$transaction`, `:94`). Media baja —comentarios borrados
 y cuenta viva, o al revés— es un estado que nadie sabe leer y que ninguna pantalla puede explicar.
 
 **Las tres fachadas reciben el `tx`**, no el cliente global: si alguna escribiera por su cuenta,

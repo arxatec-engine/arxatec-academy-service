@@ -25,7 +25,6 @@ jest.mock('@/modules/progress/shared/data/progress.repository', () => ({
 }));
 
 import { prisma } from '@/config/prisma_client';
-import { user_city } from '@/generated/enums';
 import { deleteUserAuthArtifacts } from '@/modules/auth/shared/data/auth_artifacts.repository';
 import { revokeOtherUserSessions } from '@/modules/auth/shared/data/sessions.repository';
 import { deleteUserComments } from '@/modules/comments/shared/data/comments.repository';
@@ -53,10 +52,6 @@ const revokeOthersMock = jest.mocked(revokeOtherUserSessions);
 const PROFILE_INPUT = {
   user_id: 'usr_1',
   full_name: 'Maria Quispe Rojas',
-  organization: null,
-  is_independent: true,
-  city: user_city.LIMA,
-  city_other: null,
 };
 
 beforeEach(() => {
@@ -92,7 +87,7 @@ describe('el select del perfil', () => {
     );
   });
 
-  it('actualiza solo los cinco campos del formulario, nunca el correo', async () => {
+  it('actualiza solo el nombre, sin sobrescribir otros datos de la cuenta', async () => {
     await updateUserProfile(PROFILE_INPUT);
 
     expect(usersUpdate).toHaveBeenCalledWith(
@@ -100,10 +95,6 @@ describe('el select del perfil', () => {
         where: { id: 'usr_1' },
         data: {
           full_name: 'Maria Quispe Rojas',
-          organization: null,
-          is_independent: true,
-          city: user_city.LIMA,
-          city_other: null,
         },
       }),
     );

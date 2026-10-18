@@ -8,11 +8,14 @@ import { SystemMessages } from '@/constants/messages/system';
 import { auth_provider } from '@/generated/enums';
 import { storage } from '@/infrastructure/storage/storage';
 import { resolveLessonContent } from '@/modules/courses/shared/policy/lesson_content_policy';
+import { buildSeedComments, type SeedCommentAuthor } from '@/seed/seed_comments';
 import { buildSeedCourses, type SeedCourse, type SeedLesson } from '@/seed/seed_courses';
 import { buildSeedUsers } from '@/seed/seed_data';
 import { readSeedCredentials, type SeedCredentials } from '@/seed/seed_env';
 
-const seedUsers = async (credentials: SeedCredentials): Promise<void> => {
+const seedUsers = async (credentials: SeedCredentials): Promise<readonly SeedCommentAuthor[]> => {
+  const authors: SeedCommentAuthor[] = [];
+
   for (const user of buildSeedUsers(credentials)) {
     const password_hash = await hash(user.password, { type: argon2id });
 
@@ -40,18 +43,22 @@ const seedUsers = async (credentials: SeedCredentials): Promise<void> => {
       select: { id: true, email: true, role: true },
     });
 
+    authors.push(saved);
+
     logger.info(
       { id: saved.id, email: saved.email, role: saved.role },
       SystemMessages.seed_user_created,
     );
   }
+
+  return authors;
 };
 
 const seedLesson = async (
   course_id: string,
   lesson: SeedLesson,
   position: number,
-): Promise<void> => {
+): Promise<string> => {
   const resolved = resolveLessonContent(lesson.content);
 
   if (!resolved.valid) {
@@ -65,6 +72,7 @@ const seedLesson = async (
     position,
     is_free_sample: lesson.is_free_sample,
     status: lesson.status,
+    transcript: lesson.transcript ?? null,
     ...resolved.content,
   };
 
@@ -90,9 +98,14 @@ const seedLesson = async (
       select: { id: true },
     });
   }
+
+  return saved.id;
 };
 
-const seedCourse = async (course: SeedCourse): Promise<void> => {
+const seedCourse = async (
+  course: SeedCourse,
+  authors: readonly SeedCommentAuthor[],
+): Promise<void> => {
   const fields = {
     title: course.title,
     short_description: course.short_description,
@@ -115,19 +128,35 @@ const seedCourse = async (course: SeedCourse): Promise<void> => {
     where: { course_id: saved.id, slug: { notIn: course.lessons.map((lesson) => lesson.slug) } },
   });
 
+  let commentsCreated = 0;
+
   for (const [index, lesson] of course.lessons.entries()) {
-    await seedLesson(saved.id, lesson, CoursePolicy.first_position + index);
+    const position = CoursePolicy.first_position + index;
+    const lesson_id = await seedLesson(saved.id, lesson, position);
+    const comments = buildSeedComments(
+      { id: lesson_id, title: lesson.title, position },
+      authors,
+      course.published_at,
+    );
+    const result = await prisma.comments.createMany({ data: [...comments], skipDuplicates: true });
+
+    commentsCreated += result.count;
   }
 
   logger.info(
-    { id: saved.id, slug: saved.slug, lessons: course.lessons.length },
+    {
+      id: saved.id,
+      slug: saved.slug,
+      lessons: course.lessons.length,
+      comments_created: commentsCreated,
+    },
     SystemMessages.seed_course_created,
   );
 };
 
-const seedCourses = async (): Promise<void> => {
+const seedCourses = async (authors: readonly SeedCommentAuthor[]): Promise<void> => {
   for (const course of buildSeedCourses()) {
-    await seedCourse(course);
+    await seedCourse(course, authors);
   }
 };
 
@@ -151,8 +180,9 @@ const run = async (): Promise<void> => {
   logger.info(SystemMessages.seed_started);
 
   try {
-    await seedUsers(credentials);
-    await seedCourses();
+    const authors = await seedUsers(credentials);
+
+    await seedCourses(authors);
     logger.info(SystemMessages.seed_finished);
   } catch (error: unknown) {
     logger.error({ err: error }, SystemMessages.seed_failed);

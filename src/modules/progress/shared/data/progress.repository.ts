@@ -11,6 +11,7 @@ const ENROLLMENT_SELECT = {
   started_at: true,
   completed_at: true,
   last_lesson_id: true,
+  certificate: { select: { id: true } },
 } as const;
 
 const LESSON_PROGRESS_SELECT = {

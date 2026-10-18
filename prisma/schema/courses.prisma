@@ -7,18 +7,24 @@ model courses {
   topic             course_topic
   level             course_level
   cover_image_url   String?
+  cover_image_key   String?
   status            course_status @default(DRAFT)
   catalog_order     Int
   published_at      DateTime?
   created_at        DateTime      @default(now())
   updated_at        DateTime      @updatedAt
+  teacher_id        String?
 
+  teacher     teachers? @relation(fields: [teacher_id], references: [id], onDelete: SetNull)
   lessons     lessons[]
   enrollments enrollments[]
+  exam        course_exams?
+  notification_signups notification_signups[]
 
   @@index([status, catalog_order])
   @@index([topic])
   @@index([level])
+  @@index([teacher_id])
 }
 
 model lessons {
@@ -57,6 +63,7 @@ model lesson_resources {
   lesson_id  String
   title      String   @db.VarChar(160)
   file_url   String
+  file_key   String?
   mime_type  String   @db.VarChar(128)
   size_bytes Int
   position   Int

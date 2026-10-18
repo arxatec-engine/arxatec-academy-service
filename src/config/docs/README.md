@@ -62,9 +62,9 @@ pida un correo de recuperación.
 `JWT_SECRET` exige **32 caracteres o más** (`src/config/env.ts:20`). Un secreto HS256 más corto
 que su propio hash es fuerza bruta gratis.
 
-La regla condicional está en `src/config/env.ts:37-47`: `SMTP_HOST`, `SMTP_USER` y
-`SMTP_PASSWORD` solo son obligatorios cuando `EMAIL_TRANSPORT=smtp`. En desarrollo el transporte
-es `log` y no hace falta cuenta de correo (`04_contrato_api_auth.md` §8).
+La regla condicional de `src/config/env.ts` exige `SMTP_HOST`, `SMTP_USER` y `SMTP_PASSWORD`
+cuando `EMAIL_TRANSPORT=smtp`. En desarrollo y producción solo se admite SMTP; `log` queda
+reservado para pruebas con `NODE_ENV=test`.
 
 `env.ts` **no importa el logger**: el logger necesita `env.LOG_LEVEL`
 (`src/config/logger.ts:24`), así que importarlo aquí sería un ciclo. Por eso el fallo se

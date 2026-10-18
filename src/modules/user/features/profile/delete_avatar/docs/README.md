@@ -18,7 +18,7 @@ DELETE /api/v1/me/avatar
 | cadena de la ruta | `presentation/delete_avatar.routes.ts:9` |
 | usuario → validación → service → respuesta | `presentation/delete_avatar.controller.ts:11-23` |
 | reglas | `presentation/delete_avatar.service.ts:8-26` |
-| escritura | `../../../shared/data/user_account.repository.ts:67-76` |
+| escritura | `../../../shared/data/user_account.repository.ts:63-72` |
 
 ## 2. Primero la fila, después el archivo
 

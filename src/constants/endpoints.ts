@@ -21,6 +21,8 @@ export const AuthEndpoints = {
 } as const;
 
 export const CoursesRoutePrefix = '/courses';
+export const AdminTeacherRoutePrefix = '/teachers';
+export const AdminTeacherEndpoints = { list: '/' } as const;
 
 export const CourseEndpoints = {
   list: '/',
@@ -37,6 +39,10 @@ export const CourseRouteParams = {
 export const LessonsRoutePrefix = '/lessons';
 
 export const MeRoutePrefix = '/me';
+
+export const CertificatesRoutePrefix = '/certificates';
+export const CertificateEndpoints = { detail: '/:id', download: '/:id/pdf' } as const;
+export const ExamEndpoints = { detail: '/:slug/exam', submit: '/:slug/exam/attempts' } as const;
 
 export const ProgressEndpoints = {
   enroll: '/:slug/enroll',
@@ -73,10 +79,53 @@ export const UserEndpoints = {
 
 export const AdminRoutePrefix = '/admin';
 
+export const AdminCourseRoutePrefix = '/courses';
+
+export const AdminCourseEndpoints = {
+  list: '/',
+  order: '/order',
+  detail: '/:id',
+  publish: '/:id/publish',
+  unpublish: '/:id/unpublish',
+  duplicate: '/:id/duplicate',
+  archive: '/:id/archive',
+  cover: '/:id/cover',
+  lessons: '/:course_id/lessons',
+  lessons_order: '/:course_id/lessons/order',
+  exam: '/:id/exam',
+} as const;
+
+export const AdminLessonRoutePrefix = '/lessons';
+export const AdminLessonEndpoints = {
+  detail: '/:id',
+  publish: '/:id/publish',
+  resources: '/:lesson_id/resources',
+  resource: '/:lesson_id/resources/:id',
+  resources_order: '/:lesson_id/resources/order',
+} as const;
+
+export const AdminVideoEndpoints = { probe: '/videos/probe' } as const;
+
+export const AdminCommentsRoutePrefix = '/comments';
+export const AdminCommentEndpoints = {
+  list: '/', counts: '/counts', replies: '/:id/replies',
+  status: '/:id/status', detail: '/:id',
+} as const;
+
+export const AdminUsersEndpoints = { list: '/users', export: '/users/export' } as const;
+
+export const NotificationsRoutePrefix = '/notifications';
+export const NotificationEndpoints = { signups: '/signups', topics: '/topics' } as const;
+export const AdminNotificationEndpoints = {
+  signups: '/signups', export: '/signups/export', notify: '/signups/notify',
+  topics: '/topics', subscribers: '/subscribers',
+} as const;
+
 export const FilesRoutePrefix = '/files';
 
 export const FrontendRoutes = {
   home: '/',
+  certificate: '/certificados',
   login: '/ingresar',
   register: '/crear-cuenta',
   forgot_password: '/recuperar-contrasena',

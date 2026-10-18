@@ -20,6 +20,11 @@ model users {
   oauth_accounts  oauth_accounts[]
   enrollments     enrollments[]
   lesson_progress lesson_progress[]
-  comments        comments[]
+  comments        comments[] @relation("comment_author")
+  hidden_comments comments[] @relation("comment_hidden_by")
+  deleted_comments comments[] @relation("comment_deleted_by")
   comment_reports comment_reports[]
+  reviewed_reports comment_reports[] @relation("report_reviewer")
+  notification_signups notification_signups[]
+  topic_requests topic_requests[]
 }

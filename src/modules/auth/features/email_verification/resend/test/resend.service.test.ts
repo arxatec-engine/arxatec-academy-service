@@ -6,12 +6,14 @@ import { sendEmail } from '@/infrastructure/email/send_email';
 import { hashOneTimeToken } from '@/infrastructure/tokens/one_time_token';
 import {
   findLastEmailVerificationSentAt,
+  invalidateResentVerificationToken,
   rotateEmailVerificationToken,
 } from '@/modules/auth/features/email_verification/resend/data/resend.repository';
 import { resendVerificationService } from '@/modules/auth/features/email_verification/resend/presentation/resend.service';
 
 jest.mock('@/modules/auth/features/email_verification/resend/data/resend.repository', () => ({
   findLastEmailVerificationSentAt: jest.fn(),
+  invalidateResentVerificationToken: jest.fn(),
   rotateEmailVerificationToken: jest.fn(),
 }));
 
@@ -19,6 +21,7 @@ jest.mock('@/infrastructure/email/send_email', () => ({ sendEmail: jest.fn() }))
 
 const findLastSentAtMock = jest.mocked(findLastEmailVerificationSentAt);
 const rotateTokenMock = jest.mocked(rotateEmailVerificationToken);
+const invalidateTokenMock = jest.mocked(invalidateResentVerificationToken);
 const sendEmailMock = jest.mocked(sendEmail);
 
 const NOW = new Date('2026-08-20T12:00:00.000Z');
@@ -28,6 +31,11 @@ const unverified = {
   email: 'maria@estudioqp.pe',
   email_verified_at: null,
 };
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  invalidateTokenMock.mockResolvedValue();
+});
 
 describe('resendVerificationService', () => {
   it('rota el token y envia el correo cuando el usuario nunca pidio uno', async () => {
@@ -42,6 +50,16 @@ describe('resendVerificationService', () => {
 
     expect(rotateTokenMock).toHaveBeenCalledTimes(1);
     expect(sendEmailMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('invalida el nuevo token si falla SMTP para permitir reintentar sin cooldown', async () => {
+    findLastSentAtMock.mockResolvedValue(null);
+    rotateTokenMock.mockResolvedValue('tok_2');
+    sendEmailMock.mockRejectedValue(new Error('smtp caido'));
+
+    await expect(resendVerificationService(unverified, NOW)).rejects.toThrow('smtp caido');
+
+    expect(invalidateTokenMock).toHaveBeenCalledWith('tok_2');
   });
 
   it('invalida los tokens anteriores en la misma escritura que crea el nuevo', async () => {

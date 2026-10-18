@@ -92,6 +92,7 @@ describe('getMyCoursesService', () => {
 
     expect(result.in_progress).toEqual([
       {
+        certificate_id: null,
         course: { slug: FIRST_COURSE.slug, title: FIRST_COURSE.title },
         completed_lessons: 1,
         lesson_count: 3,
@@ -100,6 +101,7 @@ describe('getMyCoursesService', () => {
     ]);
     expect(result.completed).toEqual([
       {
+        certificate_id: null,
         course: { slug: SECOND_COURSE.slug, title: SECOND_COURSE.title },
         lesson_count: 2,
         completed_at: SEALED_AT.toISOString(),
@@ -129,6 +131,7 @@ describe('getMyCoursesService', () => {
 
     expect(result.completed).toEqual([]);
     expect(result.in_progress).toContainEqual({
+      certificate_id: null,
       course: { slug: SECOND_COURSE.slug, title: SECOND_COURSE.title },
       completed_lessons: 2,
       lesson_count: 3,
@@ -157,6 +160,7 @@ describe('getMyCoursesService', () => {
     expect(result.completed).toEqual([]);
     expect(result.in_progress).toEqual([
       {
+        certificate_id: null,
         course: { slug: SECOND_COURSE.slug, title: SECOND_COURSE.title },
         completed_lessons: 0,
         lesson_count: 0,

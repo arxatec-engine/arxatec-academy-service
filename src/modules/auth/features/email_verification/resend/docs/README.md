@@ -38,8 +38,9 @@ del usuario, `auth_tokens.created_at` (`data/resend.repository.ts:5-13`). Es la 
 crea el registro (contrato §4.1), así que el cooldown ya está corriendo cuando el usuario aterriza
 en la pantalla 07 recién registrado — que es exactamente lo que la pantalla promete.
 
-La consulta **no** filtra por `consumed_at: null` a propósito: rotar consume el anterior, y
-filtrar por sin consumir haría que el cooldown desapareciera justo después de cada reenvío.
+La consulta toma solo tokens activos (`consumed_at: null`). Tras un envío correcto, el token
+nuevo está activo y conserva el cooldown. Si falla SMTP, el token nuevo se invalida para que
+el usuario pueda reintentar sin esperar por un mensaje que no salió.
 
 `resolveResendCooldown` (`domain/resend_cooldown.ts:15-38`) es pura y tiene test propio, por la
 misma razón que `session_policy` en `shared/`: concentra un número que el producto promete y se

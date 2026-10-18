@@ -23,13 +23,13 @@ HTTP es del transporte, y **quien lo elige es el slice**. Si la política lanzar
 `resolveLessonContent` (`policy/lesson_content_policy.ts:75-76`) recibe el borrador con su `type`
 y devuelve **el conjunto completo de las seis columnas de contenido**, no solo las que tocan:
 
-| `type` | Exige | Deja en `null` |
-| --- | --- | --- |
-| `VIDEO` | `video_provider`, `video_external_id` no vacío y `duration_seconds` entero positivo | `article_body`, `article_word_count`, `reading_minutes` |
-| `ARTICLE` | `article_body` con al menos una palabra fuera de las etiquetas | `video_provider`, `video_external_id`, `duration_seconds` |
+| `type`    | Exige                                                                               | Deja en `null`                                            |
+| --------- | ----------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `VIDEO`   | `video_provider`, `video_external_id` no vacío y `duration_seconds` entero positivo | `article_body`, `article_word_count`, `reading_minutes`   |
+| `ARTICLE` | `article_body` con al menos una palabra fuera de las etiquetas                      | `video_provider`, `video_external_id`, `duration_seconds` |
 
 **Que devuelva las seis columnas es el punto entero de la función.** El selector de tipo de la
-pantalla 14b *"cambia el campo siguiente"*: cuando una lección pasa de video a artículo, los
+pantalla 14b _"cambia el campo siguiente"_: cuando una lección pasa de video a artículo, los
 campos del tipo viejo **se limpian**, no se quedan de recuerdo. Si la política devolviera solo
 los campos del tipo nuevo, cada slice tendría que acordarse de poner los otros a `null` y el día
 que uno se olvide quedará una lección de artículo que sigue diciendo que dura 11:04.
@@ -43,7 +43,7 @@ divide entre `CoursePolicy.reading_words_per_minute` redondeando hacia arriba, c
 un minuto.
 
 **Las 200 palabras por minuto no son un número inventado**: son las que reproducen exactamente el
-*"Calculado: 6 min (1 180 palabras)"* de la pantalla 14b, y hay un test que lo fija
+_"Calculado: 6 min (1 180 palabras)"_ de la pantalla 14b, y hay un test que lo fija
 (`test/lesson_content_policy.test.ts:144-146`). Si alguien cambia la constante, ese test se pone
 rojo y obliga a mirar la pantalla antes que el código.
 
@@ -70,7 +70,7 @@ el bloque en una transacción exige apartar antes las posiciones (por ejemplo a 
 ## 3. Un curso publicado tiene al menos una lección publicada
 
 `canPublishCourse` (`policy/course_publication_policy.ts:7-8`). El estado E4 lo dice literal:
-*"Un curso sin lecciones no se puede publicar"*.
+_"Un curso sin lecciones no se puede publicar"_.
 
 Se comprueba **al publicar** (fase 14), no en la migración y no con un `CHECK`: es una regla
 sobre dos tablas y sobre una transición de estado concreta. La migración no puede expresarla, y
@@ -86,13 +86,13 @@ Ocho funciones, y **cada una con su `select` explícito**
 campo nuevo por una ruta pública sea un cambio deliberado en un archivo que se llama como lo que
 hace.
 
-| Lista | Columnas | Quién la usa |
-| --- | --- | --- |
-| `CATALOG_COURSE_SELECT` (`:22-30`) | las siete de la tarjeta + `id` | `GET /courses` |
-| `COURSE_DETAIL_SELECT` (`:32-41`) | las de la ficha + `id` y `published_at` | `GET /courses/:slug` y la cabecera de la lección |
-| `LESSON_SUMMARY_SELECT` (`:43-52`) | las ocho del temario | `GET /courses/:slug` y el temario del `403` |
-| `LESSON_LOCKED_SELECT` (`:54-63`) | las ocho de una lección **sin** contenido | el `403 LESSON_LOCKED` |
-| `LESSON_UNLOCKED_SELECT` (`:72-87`) | las anteriores + video, cuerpo, transcripción, `updated_at` y los recursos | la lección abierta |
+| Lista                               | Columnas                                                                   | Quién la usa                                     |
+| ----------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------ |
+| `CATALOG_COURSE_SELECT` (`:22-30`)  | las siete de la tarjeta + `id`                                             | `GET /courses`                                   |
+| `COURSE_DETAIL_SELECT` (`:32-41`)   | las de la ficha + `id`, `published_at` y perfil del docente                | `GET /courses/:slug` y la cabecera de la lección |
+| `LESSON_SUMMARY_SELECT` (`:43-52`)  | las ocho del temario                                                       | `GET /courses/:slug` y el temario del `403`      |
+| `LESSON_LOCKED_SELECT` (`:54-63`)   | las ocho de una lección **sin** contenido                                  | el `403 LESSON_LOCKED`                           |
+| `LESSON_UNLOCKED_SELECT` (`:72-87`) | las anteriores + video, cuerpo, transcripción, `updated_at` y los recursos | la lección abierta                               |
 
 **Las tres primeras no incluyen `article_body`, `transcript`, `video_provider` ni
 `video_external_id`.** No es una omisión: es la frontera. Lo que no se lee no se puede filtrar por
@@ -105,8 +105,8 @@ contenido **no llegan a leerse de la base de datos**, porque `findPublishedLesso
 (`:183-190`) solo se llama después de que `canViewLesson` haya devuelto `true`. El porqué largo
 está en `../features/lessons/get_detail/docs/README.md` §2.
 
-`LESSON_UNLOCKED_SELECT` es el único `select` del repositorio con una relación anidada: los
-recursos, **ordenados por `position` en la consulta** (`:86`), no en memoria. El orden de los
+`LESSON_UNLOCKED_SELECT` incluye los recursos como relación anidada, **ordenados por
+`position` en la consulta** (`:86`), no en memoria. El orden de los
 adjuntos es contenido editorial y lo fija el admin en la fase 15.
 
 El `id` sí se lee en las dos listas de curso, porque hace falta para cruzar el agregado de
@@ -123,11 +123,11 @@ Tres consultas más, en **un archivo aparte** (`data/course_refs.repository.ts`)
 propias: `COURSE_REF_SELECT` (`:10-14`), `LESSON_REF_SELECT` (`:16-22`) y
 `LESSON_WITH_COURSE_SELECT` (`:24-31`).
 
-| Función | Qué devuelve | Quién la usa |
-| --- | --- | --- |
-| `findPublishedCoursesByIds` (`:33-40`) | `id`, `slug`, `title` de los cursos **publicados** | `GET /me/courses` (fase 11) |
+| Función                                         | Qué devuelve                                                               | Quién la usa                                   |
+| ----------------------------------------------- | -------------------------------------------------------------------------- | ---------------------------------------------- |
+| `findPublishedCoursesByIds` (`:33-40`)          | `id`, `slug`, `title` de los cursos **publicados**                         | `GET /me/courses` (fase 11)                    |
 | `findPublishedLessonRefsByCourseIds` (`:42-49`) | `id`, `course_id`, `slug`, `title`, `position` de las lecciones publicadas | el progreso, para contar y para "la siguiente" |
-| `findLessonWithCourseById` (`:51-57`) | la lección con su curso y **los dos estados** | la guardia de "¿se puede marcar?" |
+| `findLessonWithCourseById` (`:51-57`)           | la lección con su curso y **los dos estados**                              | la guardia de "¿se puede marcar?"              |
 
 **Por qué un archivo aparte y no ocho funciones más en `courses.repository.ts`.** Porque no son
 para las pantallas de este módulo: son la superficie que `modules/progress` —y mañana
@@ -138,8 +138,8 @@ vistazo qué le presta `courses` al resto del backend, y que ese préstamo son *
 
 **`findLessonWithCourseById` es la única consulta del módulo que NO filtra por estado**, y es
 deliberado. Las demás ocultan lo no publicado en el `where`; ésta devuelve `status` de la lección
-y del curso para que quien pregunta pueda distinguir *"no existe"* (`404`) de *"ya no está
-disponible"* (`403 LESSON_LOCKED`). La decisión de qué hacer con esos dos estados **no** vive
+y del curso para que quien pregunta pueda distinguir _"no existe"_ (`404`) de _"ya no está
+disponible"_ (`403 LESSON_LOCKED`). La decisión de qué hacer con esos dos estados **no** vive
 aquí: vive en `modules/progress/shared/policy/lesson_marking.ts`, que compone `canViewLesson`.
 
 ## 6. `domain/course_mapper.ts` y `domain/lesson_mapper.ts` — la única puerta a la API pública
@@ -162,7 +162,7 @@ lección `ARTICLE`.
 
 `domain/course_totals.ts` es el cálculo puro que alimenta al mapper. `toTotalDurationSeconds`
 (`:12-13`) suma **segundos de video + minutos de lectura × 60**: la tarjeta del brief anuncia un
-único tiempo para todas las lecciones del curso, y en *Fundamentos de legal tech* dos de las seis
+único tiempo para todas las lecciones del curso, y en _Fundamentos de legal tech_ dos de las seis
 son artículos.
 
 ## 7. Quién usa esto hoy
@@ -188,7 +188,7 @@ canViewLesson({ is_free_sample, has_session }) → boolean
 ```
 
 Siete líneas (`policy/lesson_access.ts:1-7`) para la regla de negocio más importante de todo lo
-público: *«cinco lecciones se abren al crear cuenta»*. Una muestra gratuita la ve cualquiera; el
+público: _«cinco lecciones se abren al crear cuenta»_. Una muestra gratuita la ve cualquiera; el
 resto, cualquiera con sesión.
 
 **Recibe dos booleanos, no un usuario.** No puede consultar el rol, ni el progreso, ni
@@ -202,6 +202,16 @@ temario público de la fase 09
 (`../features/catalog/get_detail/presentation/get_detail.service.ts:32-35`), que antes escribía la
 misma expresión a mano. La fase 11 la usa —**componiéndola, no copiándola**— dentro de
 `modules/progress/shared/policy/lesson_marking.ts:10-16`, que le añade la única pregunta que aquí
-sobraba porque la resolvía el `where`: *¿la lección y su curso siguen publicados?* Si la regla
+sobraba porque la resolvía el `where`: _¿la lección y su curso siguen publicados?_ Si la regla
 cambia —seis lecciones, o solo con correo verificado—, cambia en un archivo y los cuatro sitios
 cambian con ella.
+
+## 9. Docentes
+
+`teachers.repository.ts` conserva perfiles de nombre, biografía y URL de foto. La tabla
+`teachers` se relaciona con `courses.teacher_id`: un docente puede impartir varios cursos y la
+asociación es opcional para mantener los cursos actuales. El mapper público construye solo los
+tres campos del perfil; el id queda en la API administrativa. Los perfiles no son usuarios ni
+cuentas de acceso. El guardado del curso y de su docente comparte una transacción y avanza la
+marca de edición incluso cuando solo cambia el docente. Las pruebas PostgreSQL están en
+`tests/integration/postgres/teachers_flow.test.ts`.

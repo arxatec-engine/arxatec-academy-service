@@ -1,155 +1,147 @@
 # Variables de entorno
 
-Fuente de la verdad: `src/config/env.ts`. El esquema Zod está en `src/config/env.ts:10-47` y el
-arranque **falla** si algo obligatorio falta (`src/config/env.ts:63-71`). `.env.example` es la
-plantilla; cópiala a `.env` y rellena.
+La fuente ejecutable es [src/config/env.ts](../src/config/env.ts). Dotenv lee `.env` sin
+reemplazar variables ya inyectadas; los valores vacíos se descartan antes de validar. El esquema
+Zod falla al importar configuración si faltan valores obligatorios. Copiar [.env.example](../.env.example)
+para desarrollo y completar los secretos localmente, sin publicarlos.
 
-Dos comportamientos que conviene saber antes de depurar nada:
+Academy no tiene los scripts Infisical ni la carga especial de `.env.local` de Admin. Sus
+comandos se ejecutan con el entorno del proceso y el `.env` de la raíz. Las variables `SEED_*`
+se validan aparte cuando se ejecuta la semilla.
 
-1. **La variable de entorno real gana sobre el `.env`.** El `dotenv` se carga sin `override`
-   (`src/config/env.ts:6`), así que `DATABASE_URL=... pnpm seed` sí cambia de base de datos. El
-   porqué está en `src/config/docs/README.md` §2. Justo por eso la semilla tiene sus propias
-   defensas (ver **Semilla**): apuntar `pnpm seed` a otra base es un comando, no una ceremonia.
-2. **Vacío cuenta como ausente.** Una clave con valor `''` se descarta antes de validar
-   (`src/config/env.ts:51-61`), así que `PORT=` cae al default en vez de reventar.
+## Servidor y base de datos
 
-## Servidor
+| Variable       | Obligatoria | Default       | Regla y uso                                                                       |
+| -------------- | ----------- | ------------- | --------------------------------------------------------------------------------- |
+| `NODE_ENV`     | No          | `development` | `development`, `test` o `production`; controla formato de logs y algunos defaults |
+| `PORT`         | No          | `3001`        | Entero 1–65535, puerto HTTP                                                       |
+| `LOG_LEVEL`    | No          | `info`        | `fatal`, `error`, `warn`, `info`, `debug`, `trace` o `silent`                     |
+| `DATABASE_URL` | Sí          | —             | Cadena no vacía de PostgreSQL para aplicación, migraciones y tests de integración |
 
-| Variable | Obligatoria | Default | Valores | Para qué |
-| --- | --- | --- | --- | --- |
-| `NODE_ENV` | no | `development` | `development` \| `test` \| `production` | decide `pino-pretty` y los defaults de arranque |
-| `PORT` | no | `3001` | 1-65535 | puerto HTTP |
-| `LOG_LEVEL` | no | `info` | `fatal` \| `error` \| `warn` \| `info` \| `debug` \| `trace` \| `silent` | nivel de Pino (`src/config/logger.ts:24`) |
+El [Compose local](../docker-compose.yml) fija usuario/base/contraseña de desarrollo y publica
+PostgreSQL 16 en `5444`. No toma esos valores de `DATABASE_URL`: la URL del cliente debe apuntar
+al contenedor que Compose configura. El volumen conserva datos entre reinicios.
 
-## Base de datos
-
-| Variable | Obligatoria | Default | Para qué |
-| --- | --- | --- | --- |
-| `DATABASE_URL` | **sí** | — | cadena de conexión de PostgreSQL |
-
-La usan tres consumidores desde un único origen: el adaptador del cliente
-(`src/config/prisma_client.ts:6`), las migraciones (`prisma.config.ts`) y `docker-compose.yml`,
-que publica el contenedor en **5444**: el 5432 lo puede tener un PostgreSQL local y el **5443 lo usa
-`arxatec-lawyer-service`**, el producto hermano, que en muchos equipos corre a la vez que éste.
-
-Valor de desarrollo con el `docker-compose.yml` de este repo:
-
-```
+```dotenv
 DATABASE_URL=postgresql://arxatec:arxatec@localhost:5444/arxatec_academy?schema=public
 ```
 
-## JWT
+Es una configuración pública de desarrollo, no una credencial de producción. Para integración,
+exportar una `DATABASE_URL` de base desechable: `TEST_DATABASE_URL` no es consumida por la suite
+actual. [TESTING](TESTING.md) explica preparación y limpieza.
 
-| Variable | Obligatoria | Default | Regla |
-| --- | --- | --- | --- |
-| `JWT_SECRET` | **sí** | — | mínimo **32 caracteres** (`src/config/env.ts:20`) |
-| `JWT_ISSUER` | no | `arxatec-academy` | va en el `iss` del token |
+`trust proxy` está fijado a un salto en `ServerPolicy`; no existe una variable `TRUST_PROXY`.
+Tampoco existen variables de presupuesto del pool o de la cola Argon2 en el esquema actual.
 
-El algoritmo es HS256 y es una constante del contrato, no del entorno
-(`src/constants/auth.ts:44`). La caducidad tampoco se configura aquí: sale de
-`AuthTokenTtlSeconds` (`src/constants/auth.ts:1-7`).
+## Identidad JWT y frontend
 
-## Frontend
+| Variable               | Obligatoria          | Default           | Regla y uso                                                       |
+| ---------------------- | -------------------- | ----------------- | ----------------------------------------------------------------- |
+| `JWT_SECRET`           | Sí                   | —                 | Mínimo 32 caracteres; firma HS256 de sesiones y state OAuth       |
+| `JWT_ISSUER`           | No                   | `arxatec-academy` | Identificador `iss`, no vacío                                     |
+| `FRONTEND_URL`         | Sí                   | —                 | URL absoluta; origen CORS, enlaces de correo, certificados y redirección Google |
+| `GOOGLE_CALLBACK_URL`  | Sí                   | —                 | URL absoluta del callback backend, incluso si no se usa Google    |
+| `GOOGLE_CLIENT_ID`     | Para utilizar Google | —                 | Identificador de la aplicación OAuth                              |
+| `GOOGLE_CLIENT_SECRET` | Para utilizar Google | —                 | Secreto OAuth del backend                                         |
 
-| Variable | Obligatoria | Default | Para qué |
-| --- | --- | --- | --- |
-| `FRONTEND_URL` | **sí** | — | base de los enlaces de correo y del `302` de Google |
+El callback local de ejemplo es `http://localhost:3001/api/v1/auth/google/callback`. Debe
+coincidir con el registrado en Google. Las credenciales de Google son opcionales al arrancar;
+la estrategia se registra al utilizarla y falla explícitamente si no están configuradas.
 
-Se concatena con `FrontendRoutes` (`src/constants/endpoints.ts:78-88`): `verificar-correo`,
-`restablecer-contrasena`, `oauth/callback`. Ver `04_contrato_api_auth.md` §§8-11.
+CORS deriva un único origen con `new URL(FRONTEND_URL).origin`; no lee una lista
+`ADMIN_ALLOWED_ORIGINS`. El nonce OAuth se guarda en cookie HttpOnly, SameSite Lax, con Secure
+en producción. Las sesiones de Academy se entregan como JWT Bearer en JSON, no como cookie de
+sesión de Admin.
 
-## Google OAuth 2.0
-
-| Variable | Obligatoria | Default | Para qué |
-| --- | --- | --- | --- |
-| `GOOGLE_CLIENT_ID` | no | — | credencial de la app de Google |
-| `GOOGLE_CLIENT_SECRET` | no | — | credencial de la app de Google |
-| `GOOGLE_CALLBACK_URL` | **sí** | — | URL absoluta registrada en Google Cloud |
-
-`GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET` son opcionales en el esquema para que el módulo de
-correo/contraseña se pueda desarrollar y testear sin una app de Google dada de alta. La
-estrategia de Passport (Fase 3) debe fallar de forma explícita si faltan cuando alguien pega en
-`/auth/google`; **no** se convierten en obligatorias globales porque eso bloquearía a quien solo
-toca el login por contraseña.
-
-`GOOGLE_CALLBACK_URL` sí es obligatoria y se valida como URL: apunta al propio backend
-(`…/api/v1/auth/google/callback`) y tiene que coincidir carácter a carácter con la registrada en
-Google, o el `redirect_uri_mismatch` aparece en producción y en ningún sitio más.
-
-## Semilla
-
-| Variable | Obligatoria | Default | Para qué |
-| --- | --- | --- | --- |
-| `SEED_ADMIN_EMAIL` | solo para `pnpm seed` | — | correo de la cuenta `ADMIN` de desarrollo |
-| `SEED_ADMIN_PASSWORD` | solo para `pnpm seed` | — | su contraseña, mínimo 8 caracteres |
-| `SEED_STUDENT_EMAIL` | solo para `pnpm seed` | — | correo de la cuenta `STUDENT` de ejemplo |
-| `SEED_STUDENT_PASSWORD` | solo para `pnpm seed` | — | su contraseña, mínimo 8 caracteres |
-
-**No tienen default y no pueden tenerlo.** Antes, las credenciales estaban escritas en
-`src/seed/seed_data.ts`: un `ADMIN` con correo y contraseña **publicados en el historial de git**,
-con `email_verified_at` ya puesto. Bastaba un `pnpm seed` lanzado con el `.env` de producción —o un
-paso de despliegue que lo incluyera "para tener datos de ejemplo"— para dejar esa cuenta creada en
-la base real, y borrar el archivo después no borra el historial. El rol `ADMIN` es del producto
-entero (`02_reglas_backend.md` §2).
-
-Ahora `src/seed/index.ts` **aborta con `logger.error` y `process.exitCode = 1`** en dos casos:
-`NODE_ENV=production` (`SystemMessages.seed_forbidden_in_production`) y credenciales ausentes o
-demasiado cortas (`SystemMessages.seed_credentials_missing`, validadas con Zod en
-`src/seed/seed_env.ts`). El `upsert` además **sí** actualiza `password_hash`, para que cambiar la
-variable y volver a sembrar rote de verdad la contraseña.
+Cambiar `JWT_SECRET` invalida tokens ya firmados. No colocar ese secreto ni credenciales de
+base/SMTP/AWS en `VITE_*`. Las rutas de frontend usadas por correo están en
+[endpoints](../src/constants/endpoints.ts): `/verificar-correo`, `/restablecer-contrasena` y
+`/oauth/callback` para los flujos correspondientes.
 
 ## Correo
 
-| Variable | Obligatoria | Default | Para qué |
-| --- | --- | --- | --- |
-| `EMAIL_TRANSPORT` | no | `log` | `log` \| `smtp` |
-| `EMAIL_FROM` | **sí** | — | remitente de los tres correos |
-| `SMTP_HOST` | solo si `smtp` | — | servidor SMTP |
-| `SMTP_PORT` | no | `587` | puerto SMTP |
-| `SMTP_SECURE` | no | `false` | `true` \| `false` (TLS directo, típicamente en 465) |
-| `SMTP_USER` | solo si `smtp` | — | usuario SMTP |
-| `SMTP_PASSWORD` | solo si `smtp` | — | contraseña SMTP |
+| Variable          | Obligatoria | Default | Regla y uso                                              |
+| ----------------- | ----------- | ------- | -------------------------------------------------------- |
+| `EMAIL_TRANSPORT` | No          | `smtp`  | `smtp` en local y producción; `log` solo en tests        |
+| `EMAIL_FROM`      | Sí          | —       | Remitente, cadena no vacía                               |
+| `SMTP_HOST`       | Si `smtp`   | —       | Host SMTP, no vacío                                      |
+| `SMTP_PORT`       | No          | `587`   | Entero 1–65535                                           |
+| `SMTP_SECURE`     | No          | `false` | Texto literal `true`/`false`; TLS directo cuando es true |
+| `SMTP_USER`       | Si `smtp`   | —       | Usuario no vacío                                         |
+| `SMTP_PASSWORD`   | Si `smtp`   | —       | Contraseña no vacía                                      |
 
-La condición está en `src/config/env.ts:37-47`: con `EMAIL_TRANSPORT=smtp`, faltar `SMTP_HOST`,
-`SMTP_USER` o `SMTP_PASSWORD` impide arrancar. Con `log` (el default de desarrollo) el correo se
-escribe en el log de Pino y el flujo entero —registro, verificación, recuperación— se puede
-probar sin cuenta de correo (`04_contrato_api_auth.md` §8).
+El esquema exige host/usuario/contraseña para SMTP y rechaza `log` fuera de `NODE_ENV=test`.
+El remitente debe coincidir con `SMTP_USER` o ser un alias que autorice el proveedor. En Academy
+se puede reutilizar el servidor SMTP de Lawyer, configurando sus credenciales como `SMTP_USER` y
+`SMTP_PASSWORD` en cada entorno, sin exponerlas en el frontend. `verify()` de Nodemailer confirma
+la conexión y autenticación, pero la entrega final depende del servidor y del buzón de destino.
 
-`SMTP_SECURE` se declara como `'true' | 'false'` y se transforma a booleano
-(`src/config/env.ts:8`): en el entorno todo es texto, y `Boolean('false')` es `true`.
+Registro tolera errores de entrega, conserva cuenta/sesión y devuelve
+`verification_email_sent: false` para mostrar reenvío inmediato. Recuperación inicia el envío sin
+esperarlo, con la respuesta protegida por un suelo de tiempo. El aviso de cambio de contraseña
+también registra el fallo sin deshacer el cambio. No hay cola ni worker de correo.
 
-## Almacenamiento de archivos
+## Almacenamiento
 
-| Variable | Obligatoria | Default | Para qué |
-| --- | --- | --- | --- |
-| `STORAGE_DRIVER` | no | `local` | `local` \| `s3` (`src/config/env.ts:38-40`) |
-| `STORAGE_LOCAL_PATH` | no | `storage` | carpeta raíz del driver local, relativa al proceso |
-| `STORAGE_PUBLIC_URL` | no | `http://localhost:3001/files` | base de la URL pública que devuelve `publicUrl` |
-| `AWS_REGION` | solo si `s3` | — | región del bucket |
-| `AWS_S3_BUCKET` | solo si `s3` | — | bucket de destino |
-| `AWS_ACCESS_KEY_ID` | solo si `s3` | — | credencial |
-| `AWS_SECRET_ACCESS_KEY` | solo si `s3` | — | credencial |
+| Variable                | Obligatoria | Default                       | Regla y uso                                                           |
+| ----------------------- | ----------- | ----------------------------- | --------------------------------------------------------------------- |
+| `STORAGE_DRIVER`        | No          | `local`                       | `local` o `s3`; solo local está implementado                          |
+| `STORAGE_LOCAL_PATH`    | No          | `storage`                     | Carpeta no vacía; relativa al directorio de trabajo si no es absoluta |
+| `STORAGE_PUBLIC_URL`    | No          | `http://localhost:3001/files` | URL absoluta utilizada para construir URLs persistidas                |
+| `AWS_REGION`            | Si `s3`     | —                             | Región, no vacía                                                      |
+| `AWS_S3_BUCKET`         | Si `s3`     | —                             | Bucket, no vacío                                                      |
+| `AWS_ACCESS_KEY_ID`     | Si `s3`     | —                             | Credencial, no vacía                                                  |
+| `AWS_SECRET_ACCESS_KEY` | Si `s3`     | —                             | Credencial, no vacía                                                  |
 
-Las cuatro `AWS_*` son opcionales **mientras el driver sea `local`** y obligatorias en cuanto es
-`s3` (`src/config/env.ts:58-71`), igual que las `SMTP_*` con `EMAIL_TRANSPORT=smtp`. El adaptador
-de S3 **todavía no está implementado** y lanza al usarse
-(`src/infrastructure/storage/s3_storage.adapter.ts:4-6`): el porqué está en
-`src/infrastructure/storage/docs/README.md` §1.
+El esquema exige las cuatro AWS al seleccionar S3, pero sus operaciones aún lanzan error.
+No hay variables de firma CloudFront ni fallback a otro bucket. Para desarrollo/producción local,
+usar una carpeta persistente y una URL que resuelva al `/files` de ese almacenamiento.
 
-`STORAGE_PUBLIC_URL` y el prefijo `/files` que monta `createApp()` (`src/app/create_app.ts:33`)
-tienen que apuntar al mismo sitio: la URL se guarda **en la base de datos** (`lesson_resources.file_url`,
-`courses.cover_image_url`), así que cambiarla no reescribe las filas ya escritas.
+Las claves internas permiten retirar archivos; las URLs son públicas. Cambiar
+`STORAGE_PUBLIC_URL` no modifica URLs guardadas en usuarios, cursos y recursos. La semilla crea
+metadatos de archivos de ejemplo sin subir los bytes. Detalles en [STORAGE](STORAGE.md).
 
-La carpeta local está ignorada por git como **`/storage`**, con barra inicial
-(`.gitignore:18`). Sin ella el patrón habría ignorado también `src/infrastructure/storage/`, que
-es código: un `.gitignore` sin anclar casa con cualquier carpeta de ese nombre a cualquier
-profundidad, y el fallo no se ve —el código compila, los tests pasan— hasta que alguien clona el
-repo y la carpeta no está.
+## Video y reportes administrativos
 
-## Lo que **no** es una variable de entorno
+| Variable                       | Obligatoria      | Default                                                  | Regla y uso                                                                              |
+| ------------------------------ | ---------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `VIDEO_PROVIDER_DRIVER`        | No               | `fake` fuera de producción; `live` en producción         | `live`, `fake` o `vimeo`; `vimeo` es alias heredado del modo live para ambos proveedores |
+| `VIDEO_PROBE_TIMEOUT_MS`       | No               | `3000`                                                   | Entero positivo para timeout de oEmbed                                                   |
+| `REPORTING_UTC_OFFSET_MINUTES` | No               | `-300`                                                   | Entero; offset fijo para fechas de reportes, Lima por defecto                            |
+| `ADMIN_EXPORT_MAX_ROWS`        | No               | `50000`                                                  | Entero positivo; tope del CSV de usuarios                                                |
+| `NOTIFICATIONS_IP_HASH_SALT`   | Sí en producción | `local-notifications-salt-change-me` fuera de producción | Mínimo 16 caracteres; producción rechaza el default de desarrollo                        |
 
-- **TTL, cooldowns y límites de peticiones** → `src/constants/auth.ts`. Son contrato, y cambiarlos
-  es cambiar `04_contrato_api_auth.md` y los dos repos a la vez.
-- **Códigos de error y textos** → `src/constants/error_codes.ts` y `src/constants/messages/`.
-- **Ningún secreto viaja al frontend.** El bundle es público: solo `VITE_*` no sensibles
-  (`01_reglas_globales.md` §8.7).
+El default de video se determina al cargar el esquema usando `process.env.NODE_ENV`.
+No hace falta una clave API YouTube: el adaptador usa oEmbed, que no devuelve duración; el editor
+debe enviar segundos positivos. El modo fake puede seleccionarse explícitamente incluso en
+producción y no prueba disponibilidad real.
+
+El offset de reportes no es una zona IANA ni cambia automáticamente por horario de verano.
+Con `-300`, el inicio de un día Lima es `05:00:00Z`. `ADMIN_EXPORT_MAX_ROWS` no limita el CSV
+de avisos. La sal se usa para hashear IP en avisos/temas; no cambia el almacenamiento de IP de
+sesiones de autenticación. Evitar describir toda la aplicación como libre de IP en claro.
+
+## Semilla de desarrollo
+
+| Variable                | Obligatoria para `pnpm seed` | Regla                                       |
+| ----------------------- | ---------------------------- | ------------------------------------------- |
+| `SEED_ADMIN_EMAIL`      | Sí                           | Email válido de la cuenta ADMIN de prueba   |
+| `SEED_ADMIN_PASSWORD`   | Sí                           | Mínimo 8 caracteres                         |
+| `SEED_STUDENT_EMAIL`    | Sí                           | Email válido de la cuenta STUDENT de prueba |
+| `SEED_STUDENT_PASSWORD` | Sí                           | Mínimo 8 caracteres                         |
+
+La semilla valida estas cuatro variables en [seed_env](../src/seed/seed_env.ts) sin defaults de
+credenciales, y aborta con `NODE_ENV=production`. Actualiza contraseñas/roles de las cuentas
+sembradas y el contenido identificado por slugs; elimina lecciones ajenas al fixture en esos
+cursos y reconstruye sus recursos. No es una herramienta de bootstrap productivo ni una carga
+que preserve cualquier edición local. Usarla únicamente sobre datos de desarrollo controlados.
+
+## Constantes que no son variables
+
+TTL de sesión/token, cooldowns, rate limits, límites de campos, tipos de archivo y códigos de
+error viven en `src/constants`. La duración de sesión es 30 días o 12 horas por inactividad y
+180 días absolutos; reenvío espera 45 segundos. Cambiarlos modifica contrato y pruebas.
+
+El límite de JSON, proxy y watchdog viven en `ServerPolicy`. No documentar como configurables
+opciones ausentes del schema. Si se añade una variable, actualizar esta guía, `.env.example`,
+la validación y el procedimiento de despliegue en la misma entrega.

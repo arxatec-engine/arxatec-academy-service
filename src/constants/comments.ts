@@ -7,4 +7,7 @@ export const CommentPolicy = {
 
 export const CommentRateLimits = {
   create: { window_seconds: 60 * 60, max: 5 },
+  moderation_write: { window_seconds: 60 * 60, max: 60 },
 } as const;
+
+export const ModerationPolicy = { default_page_size: 20, max_page_size: 50 } as const;

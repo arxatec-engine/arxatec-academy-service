@@ -38,3 +38,10 @@ export const createEmailVerificationToken = async (
     },
     select: VERIFICATION_TOKEN_SELECT,
   });
+
+export const invalidateEmailVerificationToken = async (token_id: string): Promise<void> => {
+  await prisma.auth_tokens.updateMany({
+    where: { id: token_id, consumed_at: null },
+    data: { consumed_at: new Date() },
+  });
+};

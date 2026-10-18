@@ -1,5 +1,6 @@
 import type { CatalogFacetTotalKey } from '@/constants/courses';
 import type { course_level, course_topic, lesson_type } from '@/generated/enums';
+import type { TeacherProfile } from '@/modules/courses/shared/domain/teacher.types';
 
 export interface CourseCatalogRecord {
   id: string;
@@ -12,6 +13,7 @@ export interface CourseCatalogRecord {
 }
 
 export interface CourseDetailRecord {
+  teacher: TeacherProfile | null;
   id: string;
   slug: string;
   title: string;
@@ -23,6 +25,7 @@ export interface CourseDetailRecord {
 }
 
 export interface LessonSummaryRecord {
+  id: string;
   slug: string;
   title: string;
   description: string;
@@ -81,6 +84,7 @@ export interface ApiCatalogCourse {
 }
 
 export interface ApiCourseDetail {
+  teacher: TeacherProfile | null;
   slug: string;
   title: string;
   long_description: string;
@@ -95,6 +99,7 @@ export interface ApiCourseDetail {
 }
 
 export interface ApiLessonSummary {
+  id: string;
   slug: string;
   title: string;
   description: string;

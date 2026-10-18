@@ -23,6 +23,7 @@ export const toApiLessonResource = (resource: LessonResourceRecord): ApiLessonRe
 });
 
 export const toApiLessonLocked = (lesson: LessonLockedRecord): ApiLessonLocked => ({
+  id: lesson.id,
   slug: lesson.slug,
   title: lesson.title,
   description: lesson.description,
@@ -34,6 +35,7 @@ export const toApiLessonLocked = (lesson: LessonLockedRecord): ApiLessonLocked =
 });
 
 export const toApiLessonUnlocked = (lesson: LessonUnlockedRecord): ApiLessonUnlocked => ({
+  id: lesson.id,
   slug: lesson.slug,
   title: lesson.title,
   description: lesson.description,

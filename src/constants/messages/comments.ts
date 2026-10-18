@@ -14,5 +14,11 @@ export const CommentMessages = {
   },
   rate_limit: {
     create: 'Estás comentando demasiado seguido. Vuelve a intentarlo en un rato',
+    moderation: 'Demasiadas acciones de moderación',
+  },
+  moderation: {
+    listed: 'Comentarios para moderar', counts: 'Pendientes de moderación',
+    replied: 'Respuesta del equipo publicada', updated: 'Estado del comentario actualizado',
+    deleted: 'Comentario borrado', already_deleted: 'El comentario ya fue borrado',
   },
 } as const;

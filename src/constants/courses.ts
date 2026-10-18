@@ -33,4 +33,17 @@ export const CatalogPolicy = {
   multi_value_separator: ',',
 } as const;
 
+export const AdminCoursePolicy = {
+  autosave_per_minute: 60,
+  cover_min_width: 1200,
+  cover_min_height: 750,
+  duplicate_suffix: ' (copia)',
+} as const;
+
 export type CatalogFacetTotalKey = typeof CatalogPolicy.facet_total_key;
+
+export const TeacherPolicy = {
+  full_name_max_length: 120,
+  biography_max_length: 2000,
+  photo_url_max_length: 2048,
+} as const;

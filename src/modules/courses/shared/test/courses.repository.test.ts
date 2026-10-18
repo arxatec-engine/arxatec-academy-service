@@ -36,6 +36,7 @@ const CATALOG_SELECT = {
 };
 
 const DETAIL_SELECT = {
+  teacher: { select: { full_name: true, biography: true, photo_url: true } },
   id: true,
   slug: true,
   title: true,
@@ -47,6 +48,7 @@ const DETAIL_SELECT = {
 };
 
 const LESSON_SELECT = {
+  id: true,
   slug: true,
   title: true,
   description: true,
@@ -58,6 +60,7 @@ const LESSON_SELECT = {
 };
 
 const LESSON_LOCKED_SELECT = {
+  id: true,
   slug: true,
   title: true,
   description: true,

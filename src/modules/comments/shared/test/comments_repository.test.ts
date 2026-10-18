@@ -51,6 +51,10 @@ const ROW = {
   parent_id: null,
   body: 'Una pregunta',
   status: comment_status.VISIBLE,
+  hidden_at: null,
+  hidden_by_user_id: null,
+  deleted_at: null,
+  deleted_by_user_id: null,
   created_at: new Date('2026-07-01T10:00:00.000Z'),
   updated_at: new Date('2026-07-01T10:00:00.000Z'),
 };

@@ -12,6 +12,7 @@ import { hashPassword } from '@/infrastructure/password/hash_password';
 import { createOneTimeToken } from '@/infrastructure/tokens/one_time_token';
 import {
   createEmailVerificationToken,
+  invalidateEmailVerificationToken,
   isEmailRegistered,
 } from '@/modules/auth/features/registration/register/data/register.repository';
 import type {
@@ -71,13 +72,18 @@ const createAccount = async (
 const sendVerificationEmail = async (user: AuthUserRecord): Promise<void> => {
   const verification = createOneTimeToken(AuthTokenTtlSeconds.email_verification);
 
-  await createEmailVerificationToken({
+  const savedToken = await createEmailVerificationToken({
     user_id: user.id,
     token_hash: verification.token_hash,
     expires_at: verification.expires_at,
   });
 
-  await sendEmail({ to: user.email, ...buildVerificationEmail({ token: verification.token }) });
+  try {
+    await sendEmail({ to: user.email, ...buildVerificationEmail({ token: verification.token }) });
+  } catch (error) {
+    await invalidateEmailVerificationToken(savedToken.id);
+    throw error;
+  }
 };
 
 export const registerUser = async (command: RegisterCommand): Promise<RegisterResult> => {
@@ -103,8 +109,10 @@ export const registerUser = async (command: RegisterCommand): Promise<RegisterRe
     absolute_expires_at: computeSessionAbsoluteExpiresAt(session.created_at),
   });
 
+  let verification_email_sent = false;
   try {
     await sendVerificationEmail(user);
+    verification_email_sent = true;
   } catch (error) {
     logger.error({ err: error, user_id: user.id }, SystemMessages.email_failed);
   }
@@ -113,5 +121,6 @@ export const registerUser = async (command: RegisterCommand): Promise<RegisterRe
     token,
     expires_at: session.expires_at.toISOString(),
     user: toApiUser(user),
+    verification_email_sent,
   };
 };

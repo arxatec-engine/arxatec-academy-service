@@ -7,6 +7,7 @@ import { buildVerificationEmail } from '@/infrastructure/email/templates/verific
 import { createOneTimeToken } from '@/infrastructure/tokens/one_time_token';
 import {
   findLastEmailVerificationSentAt,
+  invalidateResentVerificationToken,
   rotateEmailVerificationToken,
 } from '@/modules/auth/features/email_verification/resend/data/resend.repository';
 import type {
@@ -44,9 +45,19 @@ export const resendVerificationService = async (
     now,
   );
 
-  await rotateEmailVerificationToken({ user_id, token_hash, expires_at, invalidated_at: now });
+  const token_id = await rotateEmailVerificationToken({
+    user_id,
+    token_hash,
+    expires_at,
+    invalidated_at: now,
+  });
 
-  await sendEmail({ to: email, ...buildVerificationEmail({ token }) });
+  try {
+    await sendEmail({ to: email, ...buildVerificationEmail({ token }) });
+  } catch (error) {
+    await invalidateResentVerificationToken(token_id);
+    throw error;
+  }
 
   return { already_verified: false, retry_after_seconds: AuthPolicy.resend_cooldown_seconds };
 };

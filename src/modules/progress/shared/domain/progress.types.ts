@@ -2,6 +2,7 @@ import type { LessonRefRecord } from '@/modules/courses/shared/domain/course_ref
 
 export interface EnrollmentRecord {
   course_id: string;
+  certificate?: { id: string } | null;
   started_at: Date;
   completed_at: Date | null;
   last_lesson_id: string | null;
@@ -33,6 +34,7 @@ export interface ApiNextLesson {
 
 export interface ApiEnrollment {
   course: ApiProgressCourse;
+  certificate_id?: string | null;
   started_at: string;
   completed_at: string | null;
   completed_lessons: number;
@@ -55,6 +57,7 @@ export interface ApiLessonMark {
 
 export interface ApiMyCourseInProgress {
   course: ApiProgressCourse;
+  certificate_id?: string | null;
   completed_lessons: number;
   lesson_count: number;
   next_lesson: ApiNextLesson | null;
@@ -62,6 +65,7 @@ export interface ApiMyCourseInProgress {
 
 export interface ApiMyCourseCompleted {
   course: ApiProgressCourse;
+  certificate_id?: string | null;
   lesson_count: number;
   completed_at: string;
 }

@@ -32,6 +32,7 @@ const findPublishedLessonLockedMock = jest.mocked(findPublishedLessonLocked);
 const findPublishedLessonUnlockedMock = jest.mocked(findPublishedLessonUnlocked);
 
 const COURSE: CourseDetailRecord = {
+  teacher: null,
   id: 'crs_1',
   slug: 'fundamentos-de-legal-tech',
   title: 'Fundamentos de legal tech',
@@ -49,6 +50,7 @@ const LAST_SLUG = 'tu-primera-semana-con-un-sistema';
 
 const TEMARIO: readonly LessonSummaryRecord[] = [
   {
+    id: 'lesson-1',
     slug: SAMPLE_SLUG,
     title: 'Qué es legal tech y qué no',
     description: 'Separamos tres cosas que suelen ir revueltas.',
@@ -59,6 +61,7 @@ const TEMARIO: readonly LessonSummaryRecord[] = [
     is_free_sample: true,
   },
   {
+    id: 'lesson-2',
     slug: ARTICLE_SLUG,
     title: 'El costo oculto de trabajar en Word y correo',
     description: 'Cuánto tiempo se pierde buscando la última versión.',
@@ -69,6 +72,7 @@ const TEMARIO: readonly LessonSummaryRecord[] = [
     is_free_sample: false,
   },
   {
+    id: 'lesson-3',
     slug: VIDEO_SLUG,
     title: 'Las cuatro herramientas que ya usas sin saberlo',
     description: 'Firma digital, notificaciones electrónicas y dos más.',
@@ -79,6 +83,7 @@ const TEMARIO: readonly LessonSummaryRecord[] = [
     is_free_sample: false,
   },
   {
+    id: 'lesson-4',
     slug: LAST_SLUG,
     title: 'Tu primera semana con un sistema',
     description: 'Un plan de cinco días.',
@@ -91,6 +96,7 @@ const TEMARIO: readonly LessonSummaryRecord[] = [
 ];
 
 const LOCKED: LessonLockedRecord = {
+  id: 'locked-lesson-id',
   slug: VIDEO_SLUG,
   title: 'Las cuatro herramientas que ya usas sin saberlo',
   description: 'Firma digital, notificaciones electrónicas y dos más.',
@@ -263,6 +269,7 @@ describe('getDetailService · la lección bloqueada', () => {
     }
 
     expect(result.view.lesson).toEqual({
+      id: LOCKED.id,
       slug: VIDEO_SLUG,
       title: LOCKED.title,
       description: LOCKED.description,
@@ -318,6 +325,7 @@ describe('getDetailService · la lección abierta', () => {
 
   it('una lección de artículo trae cuerpo y minutos de lectura, y video en null', async () => {
     findPublishedLessonUnlockedMock.mockResolvedValue({
+      id: 'article-lesson-id',
       slug: ARTICLE_SLUG,
       title: 'El costo oculto de trabajar en Word y correo',
       description: 'Cuánto tiempo se pierde buscando la última versión.',
