@@ -12,9 +12,12 @@ import { buildSeedComments, type SeedCommentAuthor } from '@/seed/seed_comments'
 import { buildSeedCourses, type SeedCourse, type SeedLesson } from '@/seed/seed_courses';
 import { buildSeedUsers } from '@/seed/seed_data';
 import { readSeedCredentials, type SeedCredentials } from '@/seed/seed_env';
+import { seedNotifications, type SeedNotificationUser } from '@/seed/seed_notifications';
 
-const seedUsers = async (credentials: SeedCredentials): Promise<readonly SeedCommentAuthor[]> => {
-  const authors: SeedCommentAuthor[] = [];
+const seedUsers = async (
+  credentials: SeedCredentials,
+): Promise<readonly SeedNotificationUser[]> => {
+  const authors: SeedNotificationUser[] = [];
 
   for (const user of buildSeedUsers(credentials)) {
     const password_hash = await hash(user.password, { type: argon2id });
@@ -183,6 +186,12 @@ const run = async (): Promise<void> => {
     const authors = await seedUsers(credentials);
 
     await seedCourses(authors);
+    const courses = await prisma.courses.findMany({
+      where: { slug: { in: buildSeedCourses().map((course) => course.slug) } },
+      select: { id: true, slug: true },
+    });
+    const notices = await seedNotifications(prisma, authors, courses);
+    logger.info(notices, SystemMessages.seed_notifications_created);
     logger.info(SystemMessages.seed_finished);
   } catch (error: unknown) {
     logger.error({ err: error }, SystemMessages.seed_failed);

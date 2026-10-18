@@ -35,14 +35,14 @@ Tampoco existen variables de presupuesto del pool o de la cola Argon2 en el esqu
 
 ## Identidad JWT y frontend
 
-| Variable               | Obligatoria          | Default           | Regla y uso                                                       |
-| ---------------------- | -------------------- | ----------------- | ----------------------------------------------------------------- |
-| `JWT_SECRET`           | Sí                   | —                 | Mínimo 32 caracteres; firma HS256 de sesiones y state OAuth       |
-| `JWT_ISSUER`           | No                   | `arxatec-academy` | Identificador `iss`, no vacío                                     |
+| Variable               | Obligatoria          | Default           | Regla y uso                                                                     |
+| ---------------------- | -------------------- | ----------------- | ------------------------------------------------------------------------------- |
+| `JWT_SECRET`           | Sí                   | —                 | Mínimo 32 caracteres; firma HS256 de sesiones y state OAuth                     |
+| `JWT_ISSUER`           | No                   | `arxatec-academy` | Identificador `iss`, no vacío                                                   |
 | `FRONTEND_URL`         | Sí                   | —                 | URL absoluta; origen CORS, enlaces de correo, certificados y redirección Google |
-| `GOOGLE_CALLBACK_URL`  | Sí                   | —                 | URL absoluta del callback backend, incluso si no se usa Google    |
-| `GOOGLE_CLIENT_ID`     | Para utilizar Google | —                 | Identificador de la aplicación OAuth                              |
-| `GOOGLE_CLIENT_SECRET` | Para utilizar Google | —                 | Secreto OAuth del backend                                         |
+| `GOOGLE_CALLBACK_URL`  | Sí                   | —                 | URL absoluta del callback backend, incluso si no se usa Google                  |
+| `GOOGLE_CLIENT_ID`     | Para utilizar Google | —                 | Identificador de la aplicación OAuth                                            |
+| `GOOGLE_CLIENT_SECRET` | Para utilizar Google | —                 | Secreto OAuth del backend                                                       |
 
 El callback local de ejemplo es `http://localhost:3001/api/v1/auth/google/callback`. Debe
 coincidir con el registrado en Google. Las credenciales de Google son opcionales al arrancar;
@@ -135,6 +135,8 @@ credenciales, y aborta con `NODE_ENV=production`. Actualiza contraseñas/roles d
 sembradas y el contenido identificado por slugs; elimina lecciones ajenas al fixture en esos
 cursos y reconstruye sus recursos. No es una herramienta de bootstrap productivo ni una carga
 que preserve cualquier edición local. Usarla únicamente sobre datos de desarrollo controlados.
+También añade los avisos y solicitudes de tema de ejemplo que falten, sin reiniciar los estados
+de notificación ni incrementar de nuevo los contadores de solicitudes existentes.
 
 ## Constantes que no son variables
 

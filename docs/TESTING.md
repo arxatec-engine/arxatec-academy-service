@@ -101,12 +101,22 @@ Esos valores de contraseña son fixtures públicas para una base desechable. La 
 progreso, comentarios y cuenta buscan el curso `fundamentos-de-legal-tech` y sus lecciones.
 No es una carga puramente aditiva: actualiza usuarios/cursos y reconstruye recursos.
 
-En una base vacía crea 12 usuarios, 6 cursos y 55 lecciones de video de YouTube.
+En una base vacía crea 36 usuarios (un administrador y 35 estudiantes), 6 cursos y 55 lecciones
+de video de YouTube.
 `fundamentos-de-legal-tech` tiene 30 lecciones. Los videos reutilizan tres clips públicos de
 muestra para probar el reproductor; sus títulos y duraciones describen las clases de ejemplo.
 Los dos artículos anteriores se conservan como transcripciones de sus respectivas clases.
-Los diez alumnos adicionales usan correos `@seed.arxatec.test` y la contraseña
-`SEED_STUDENT_PASSWORD`.
+Los 34 alumnos adicionales usan correos `@seed.arxatec.test` y la contraseña
+`SEED_STUDENT_PASSWORD`, con perfiles de Lima, Arequipa y Trujillo, independientes y de
+distintos estudios. El directorio supera una página con el tamaño predeterminado de 25 usuarios.
+
+Los avisos incluyen 60 suscripciones: 30 al catálogo general y 30 repartidas entre los seis
+cursos, con 30 pendientes y 30 ya avisadas. Participan 24 alumnos y seis visitantes con
+correos `visitante01@seed.arxatec.test` a `visitante06@seed.arxatec.test`. También se crean 50
+solicitudes agrupadas en diez temas, con varios correos y contadores por tema. Estos datos
+permiten revisar filtros, paginación, CSV, marcado y borrado de direcciones desde administración.
+La semilla de avisos solo inserta registros faltantes; conserva los estados y contadores
+existentes, y reconoce las suscripciones generales por correo aunque `course_id` sea nulo.
 
 También crea 545 hilos y 1788 respuestas, con intervenciones del equipo, conversaciones entre
 alumnos y preguntas pendientes. Los comentarios tienen identificadores estables: volver a

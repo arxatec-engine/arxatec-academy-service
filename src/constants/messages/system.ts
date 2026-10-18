@@ -12,6 +12,7 @@ export const SystemMessages = {
     'Faltan las credenciales de la semilla: SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD, SEED_STUDENT_EMAIL y SEED_STUDENT_PASSWORD (la contraseña, de 8 caracteres o más)',
   seed_user_created: 'Usuario de semilla listo',
   seed_course_created: 'Curso de semilla listo',
+  seed_notifications_created: 'Avisos y solicitudes de tema de semilla listos',
   seed_lesson_content_invalid:
     'Una lección de la semilla no cumple la política de contenido: revisa src/seed/seed_courses.ts',
   seed_finished: 'Semilla terminada',
