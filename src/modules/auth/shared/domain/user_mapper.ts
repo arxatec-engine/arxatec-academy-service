@@ -1,6 +1,7 @@
+import type { FileUrlResolver } from '@/infrastructure/storage/storage.types';
 import type { ApiUser, AuthUserRecord } from '@/modules/auth/shared/domain/auth_user.types';
 
-export const toApiUser = (user: AuthUserRecord): ApiUser => ({
+export const toApiUser = (user: AuthUserRecord, resolveFileUrl: FileUrlResolver): ApiUser => ({
   id: user.id,
   full_name: user.full_name,
   email: user.email,
@@ -9,7 +10,7 @@ export const toApiUser = (user: AuthUserRecord): ApiUser => ({
   is_independent: user.is_independent,
   city: user.city,
   city_other: user.city_other,
-  avatar_url: user.avatar_url,
+  avatar_url: resolveFileUrl(user.avatar_url, user.avatar_key),
   email_verified_at: user.email_verified_at === null ? null : user.email_verified_at.toISOString(),
   auth_provider: user.auth_provider,
   created_at: user.created_at.toISOString(),

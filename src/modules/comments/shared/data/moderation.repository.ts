@@ -4,7 +4,7 @@ import { comment_status, user_role } from '@/generated/enums';
 
 const MODERATION_SELECT = {
   id: true, body: true, status: true, created_at: true, parent_id: true,
-  user: { select: { full_name: true, avatar_url: true, role: true } },
+  user: { select: { full_name: true, avatar_url: true, avatar_key: true, role: true } },
   parent: { select: { status: true } },
   lesson: { select: { slug: true, title: true, position: true,
     course: { select: { slug: true, title: true } } } },

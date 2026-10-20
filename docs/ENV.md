@@ -2,12 +2,36 @@
 
 La fuente ejecutable es [src/config/env.ts](../src/config/env.ts). Dotenv lee `.env` sin
 reemplazar variables ya inyectadas; los valores vacíos se descartan antes de validar. El esquema
-Zod falla al importar configuración si faltan valores obligatorios. Copiar [.env.example](../.env.example)
-para desarrollo y completar los secretos localmente, sin publicarlos.
+Zod falla al importar configuración si faltan valores obligatorios.
 
-Academy no tiene los scripts Infisical ni la carga especial de `.env.local` de Admin. Sus
-comandos se ejecutan con el entorno del proceso y el `.env` de la raíz. Las variables `SEED_*`
-se validan aparte cuando se ejecuta la semilla.
+## Infisical
+
+Los scripts leen el `workspaceId` de `.infisical.json` y lo pasan como `--projectId`, siguiendo
+el patrón de Admin con pnpm. Instala Infisical CLI y ejecuta `infisical login` en el equipo
+local con acceso al proyecto del servicio. El proyecto del frontend se configura por separado.
+Agrega las variables de esta guía en la raíz `/` de los entornos `dev` y `prod`.
+
+| Comando                                                            | Entorno de Infisical                    |
+| ------------------------------------------------------------------ | --------------------------------------- |
+| `pnpm dev` / `pnpm build:dev`                                      | `dev`                                   |
+| `pnpm build:prod` / `pnpm build` / `pnpm start`                    | `prod`                                  |
+| `pnpm prisma:migrate`                                              | `dev`; ejecuta `prisma migrate dev`     |
+| `pnpm prisma:deploy`                                               | `prod`; ejecuta `prisma migrate deploy` |
+| `pnpm seed` / `pnpm seed:exams` / `pnpm storage:check:development` | `dev`                                   |
+
+Las tareas tienen variantes `:local` que usan el entorno existente y el `.env` de la raíz,
+sin consultar Infisical. `build:local` y `dev:local` generan el cliente Prisma antes de ejecutar
+su tarea. `prisma:generate`, lint, tipos y tests siguen usando el entorno existente.
+Para archivos locales, copia [.env.example](../.env.example) a `.env`. No hay carga especial de
+`.env.local`. Las variables inyectadas tienen prioridad y Dotenv solo completa las ausentes.
+
+Configura `NODE_ENV=development` en `dev` y `NODE_ENV=production` en `prod`: el nombre del entorno
+Infisical no sustituye esa variable de Node. Las variables `SEED_*` se validan aparte al ejecutar
+la semilla y corresponden al entorno de desarrollo.
+
+Se mantiene `CLOUDFRONT_ACADEMY_PRODUCT_PRIVATE_KEY_PATH=./.cloudfront.private.pem` para la firma
+desde archivo. El PEM debe existir en la raíz del servicio al ejecutar; guardar la ruta en
+Infisical no crea el archivo. Con esta opción, deja sin definir la variable de clave inline.
 
 ## Servidor y base de datos
 
@@ -83,23 +107,47 @@ también registra el fallo sin deshacer el cambio. No hay cola ni worker de corr
 
 ## Almacenamiento
 
-| Variable                | Obligatoria | Default                       | Regla y uso                                                           |
-| ----------------------- | ----------- | ----------------------------- | --------------------------------------------------------------------- |
-| `STORAGE_DRIVER`        | No          | `local`                       | `local` o `s3`; solo local está implementado                          |
-| `STORAGE_LOCAL_PATH`    | No          | `storage`                     | Carpeta no vacía; relativa al directorio de trabajo si no es absoluta |
-| `STORAGE_PUBLIC_URL`    | No          | `http://localhost:3001/files` | URL absoluta utilizada para construir URLs persistidas                |
-| `AWS_REGION`            | Si `s3`     | —                             | Región, no vacía                                                      |
-| `AWS_S3_BUCKET`         | Si `s3`     | —                             | Bucket, no vacío                                                      |
-| `AWS_ACCESS_KEY_ID`     | Si `s3`     | —                             | Credencial, no vacía                                                  |
-| `AWS_SECRET_ACCESS_KEY` | Si `s3`     | —                             | Credencial, no vacía                                                  |
+La validación de estas variables está en [storage_env](../src/config/storage_env.ts).
 
-El esquema exige las cuatro AWS al seleccionar S3, pero sus operaciones aún lanzan error.
-No hay variables de firma CloudFront ni fallback a otro bucket. Para desarrollo/producción local,
-usar una carpeta persistente y una URL que resuelva al `/files` de ese almacenamiento.
+Con `STORAGE_DRIVER=s3`, los nombres de producto tienen prioridad sobre los genéricos:
 
-Las claves internas permiten retirar archivos; las URLs son públicas. Cambiar
-`STORAGE_PUBLIC_URL` no modifica URLs guardadas en usuarios, cursos y recursos. La semilla crea
-metadatos de archivos de ejemplo sin subir los bytes. Detalles en [STORAGE](STORAGE.md).
+| Nombre de producto                            | Alias genérico interno        |
+| --------------------------------------------- | ----------------------------- |
+| `S3_ACADEMY_PRODUCT_BUCKET`                   | `AWS_S3_BUCKET`               |
+| `CDN_ACADEMY_PRODUCT_BASE_URL`                | `STORAGE_PUBLIC_URL`          |
+| `CLOUDFRONT_ACADEMY_PRODUCT_KEY_PAIR_ID`      | `CLOUDFRONT_KEY_PAIR_ID`      |
+| `CLOUDFRONT_ACADEMY_PRODUCT_PRIVATE_KEY`      | `CLOUDFRONT_PRIVATE_KEY`      |
+| `CLOUDFRONT_ACADEMY_PRODUCT_PRIVATE_KEY_PATH` | `CLOUDFRONT_PRIVATE_KEY_PATH` |
+| `CLOUDFRONT_SIGNED_URL_TTL_SECONDS`           | `CLOUDFRONT_URL_TTL_SECONDS`  |
+
+Con local, esas variables no sustituyen la URL de `/files`. Las subidas nuevas de portadas y
+avatares usan `/public/` sin firma; los recursos usan `/private/` y URLs firmadas.
+
+| Variable                      | Obligatoria             | Default                       | Regla y uso                                                          |
+| ----------------------------- | ----------------------- | ----------------------------- | -------------------------------------------------------------------- |
+| `STORAGE_DRIVER`              | No                      | `local`                       | `local` o `s3`, ambos implementados                                  |
+| `STORAGE_LOCAL_PATH`          | No                      | `storage`                     | Carpeta local persistente                                            |
+| `STORAGE_PUBLIC_URL`          | Si `s3`                 | `http://localhost:3001/files` | En S3, base CDN HTTPS sin credenciales, query ni fragmento           |
+| `AWS_REGION`                  | Si `s3`                 | —                             | Región del bucket                                                    |
+| `AWS_S3_BUCKET`               | Si `s3`                 | —                             | Nombre del bucket, no dominio                                        |
+| `AWS_ACCESS_KEY_ID`           | No                      | —                             | Con secret, o ambas ausentes para IAM/default credential chain       |
+| `AWS_SECRET_ACCESS_KEY`       | Si se define access key | —                             | Siempre el par completo                                              |
+| `AWS_SESSION_TOKEN`           | No                      | —                             | Token para credenciales temporales                                   |
+| `CLOUDFRONT_KEY_PAIR_ID`      | Si `s3`                 | —                             | ID de clave pública del grupo confiable, no ID de grupo/distribución |
+| `CLOUDFRONT_PRIVATE_KEY`      | Una fuente si `s3`      | —                             | PEM RSA 2048 inline, admite saltos escapados                         |
+| `CLOUDFRONT_PRIVATE_KEY_PATH` | Alternativa al inline   | —                             | Archivo PEM privado legible por el proceso                           |
+| `CLOUDFRONT_URL_TTL_SECONDS`  | No                      | `300`                         | Entero entre 1 y 86400                                               |
+
+Con S3, configurar exactamente una fuente de PEM. El arranque rechaza una configuración
+incompleta, un PEM ilegible/inválido o una clave que no sea RSA 2048. No hay fallback público.
+El comportamiento `/private/*` debe exigir URLs firmadas y usar el grupo confiable;
+`/public/*` permite lectura sin firma; el origen S3 permanece
+privado con OAC. Los fallos de operación producen `503 STORAGE_UNAVAILABLE`.
+
+La DB conserva URL canónica y clave. Las respuestas renuevan la firma desde la clave usando
+el dominio vigente, sin persistir enlaces temporales. Filas sin clave conservan su URL original.
+Antes de cambiar de driver, migrar bytes manteniendo claves y revisar filas legacy. Ver
+[STORAGE](STORAGE.md) para permisos, caducidad, caché y comprobaciones reales.
 
 ## Video y reportes administrativos
 

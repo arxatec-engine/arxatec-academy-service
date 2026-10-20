@@ -6,9 +6,11 @@ import type {
 } from '@/modules/comments/shared/domain/comment.types';
 import { toApiComment, toApiCommentAuthor } from '@/modules/comments/shared/domain/comment_mapper';
 
+const preserveFileUrl = <T extends string | null>(url: T): T => url;
+
 const author = (overrides: Partial<CommentAuthorRecord> = {}): CommentAuthorRecord => ({
   full_name: 'Jorge Ramírez',
-  avatar_url: null,
+  avatar_key: null, avatar_url: null,
   organization: 'Estudio Ramírez Abogados',
   is_independent: false,
   role: user_role.STUDENT,
@@ -26,45 +28,45 @@ const comment = (overrides: Partial<CommentRecord> = {}): CommentRecord => ({
 
 describe('toApiCommentAuthor', () => {
   it('la afiliación sale de la organización', () => {
-    expect(toApiCommentAuthor(author())?.affiliation).toBe('Estudio Ramírez Abogados');
+    expect(toApiCommentAuthor(author(), preserveFileUrl)?.affiliation).toBe('Estudio Ramírez Abogados');
   });
 
   it('sin organización y con is_independent usa el texto de independiente', () => {
     expect(
-      toApiCommentAuthor(author({ organization: null, is_independent: true }))?.affiliation,
+      toApiCommentAuthor(author({ organization: null, is_independent: true }), preserveFileUrl)?.affiliation,
     ).toBe(CommentMessages.author.independent);
   });
 
   it('una organización en blanco cuenta como ausente', () => {
     expect(
-      toApiCommentAuthor(author({ organization: '   ', is_independent: true }))?.affiliation,
+      toApiCommentAuthor(author({ organization: '   ', is_independent: true }), preserveFileUrl)?.affiliation,
     ).toBe(CommentMessages.author.independent);
   });
 
   it('sin organización y sin is_independent la afiliación es null', () => {
     expect(
-      toApiCommentAuthor(author({ organization: null, is_independent: false }))?.affiliation,
+      toApiCommentAuthor(author({ organization: null, is_independent: false }), preserveFileUrl)?.affiliation,
     ).toBeNull();
   });
 
   it('is_team es true para un ADMIN', () => {
-    expect(toApiCommentAuthor(author({ role: user_role.ADMIN }))?.is_team).toBe(true);
+    expect(toApiCommentAuthor(author({ role: user_role.ADMIN }), preserveFileUrl)?.is_team).toBe(true);
   });
 
   it('is_team cambia al bajarle el rol al mismo usuario: no se guarda, se calcula', () => {
     const equipo = author({ role: user_role.ADMIN });
     const degradado = { ...equipo, role: user_role.STUDENT };
 
-    expect(toApiCommentAuthor(equipo)?.is_team).toBe(true);
-    expect(toApiCommentAuthor(degradado)?.is_team).toBe(false);
+    expect(toApiCommentAuthor(equipo, preserveFileUrl)?.is_team).toBe(true);
+    expect(toApiCommentAuthor(degradado, preserveFileUrl)?.is_team).toBe(false);
   });
 
   it('una cuenta borrada deja el autor en null', () => {
-    expect(toApiCommentAuthor(null)).toBeNull();
+    expect(toApiCommentAuthor(null, preserveFileUrl)).toBeNull();
   });
 
   it('el autor solo lleva las cuatro claves que pinta la pantalla 08', () => {
-    expect(Object.keys(toApiCommentAuthor(author()) ?? {}).sort()).toEqual([
+    expect(Object.keys(toApiCommentAuthor(author(), preserveFileUrl) ?? {}).sort()).toEqual([
       'affiliation',
       'avatar_url',
       'full_name',
@@ -75,7 +77,7 @@ describe('toApiCommentAuthor', () => {
 
 describe('toApiComment', () => {
   it('serializa la fecha en ISO y conserva el cuerpo tal cual', () => {
-    expect(toApiComment(comment())).toEqual({
+    expect(toApiComment(comment(), preserveFileUrl)).toEqual({
       id: 'cmt_1',
       parent_id: null,
       body: '¿Esto aplica a un estudio de dos personas?',
@@ -92,10 +94,10 @@ describe('toApiComment', () => {
   it('el cuerpo no se escapa ni se sanea: se guarda y se devuelve como texto plano', () => {
     const raw = '<b>ojo</b> & <script>alert(1)</script>';
 
-    expect(toApiComment(comment({ body: raw })).body).toBe(raw);
+    expect(toApiComment(comment({ body: raw }), preserveFileUrl).body).toBe(raw);
   });
 
   it('el JSON serializado de un comentario no contiene ninguna arroba', () => {
-    expect(JSON.stringify(toApiComment(comment()))).not.toContain('@');
+    expect(JSON.stringify(toApiComment(comment(), preserveFileUrl))).not.toContain('@');
   });
 });

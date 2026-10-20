@@ -32,7 +32,7 @@ const CATALOG_SELECT = {
   short_description: true,
   topic: true,
   level: true,
-  cover_image_url: true,
+  cover_image_url: true, cover_image_key: true,
 };
 
 const DETAIL_SELECT = {
@@ -43,7 +43,7 @@ const DETAIL_SELECT = {
   long_description: true,
   topic: true,
   level: true,
-  cover_image_url: true,
+  cover_image_url: true, cover_image_key: true,
   published_at: true,
 };
 
@@ -79,7 +79,7 @@ const LESSON_UNLOCKED_SELECT = {
   transcript: true,
   updated_at: true,
   resources: {
-    select: { title: true, file_url: true, mime_type: true, size_bytes: true },
+    select: { title: true, file_url: true, file_key: true, mime_type: true, size_bytes: true },
     orderBy: { position: 'asc' },
   },
 };
@@ -95,7 +95,7 @@ beforeEach(() => {
 });
 
 describe('courses.repository · select explícito', () => {
-  it('el catálogo pide siete columnas y ninguna más', async () => {
+  it('el catálogo pide las columnas públicas y la clave interna de portada y ninguna más', async () => {
     await findPublishedCourses({ topics: [], levels: [] });
 
     expect(coursesFindMany).toHaveBeenCalledWith({

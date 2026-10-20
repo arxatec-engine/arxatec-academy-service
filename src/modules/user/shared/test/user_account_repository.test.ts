@@ -68,10 +68,10 @@ describe('el select del perfil', () => {
     const select = usersUpdate.mock.calls[0]?.[0].select;
 
     expect(JSON.stringify(select)).not.toContain('password_hash');
-    expect(JSON.stringify(select)).not.toContain('avatar_key');
     expect(Object.keys(select ?? {}).sort()).toEqual(
       [
         'auth_provider',
+        'avatar_key',
         'avatar_url',
         'city',
         'city_other',

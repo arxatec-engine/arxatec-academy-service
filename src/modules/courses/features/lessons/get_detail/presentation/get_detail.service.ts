@@ -1,3 +1,4 @@
+import { resolveStoredFileUrl } from '@/infrastructure/storage/file_url';
 import { ErrorCodes } from '@/constants/error_codes';
 import { HttpStatusCodes } from '@/constants/http_status_codes';
 import { CourseMessages } from '@/constants/messages/courses';
@@ -80,7 +81,7 @@ export const getDetailService = async (payload: GetDetailPayload): Promise<GetDe
   return {
     locked: false,
     view: {
-      lesson: toApiLessonUnlocked(unlocked),
+      lesson: toApiLessonUnlocked(unlocked, resolveStoredFileUrl),
       course: api_course,
       navigation: resolveLessonNavigation(lessons, index),
     },

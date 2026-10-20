@@ -1,3 +1,4 @@
+import { resolveStoredFileUrl } from '@/infrastructure/storage/file_url';
 import { ErrorCodes } from '@/constants/error_codes';
 import { HttpStatusCodes } from '@/constants/http_status_codes';
 import { AuthMessages } from '@/constants/messages/auth';
@@ -16,5 +17,5 @@ export const getMeService = async (payload: GetMePayload): Promise<GetMeResult> 
     });
   }
 
-  return { user: toApiUser(user) };
+  return { user: toApiUser(user, resolveStoredFileUrl) };
 };

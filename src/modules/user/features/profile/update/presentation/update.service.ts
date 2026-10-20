@@ -1,3 +1,4 @@
+import { resolveStoredFileUrl } from '@/infrastructure/storage/file_url';
 import { toApiUser } from '@/modules/auth/shared/domain/user_mapper';
 import type { UpdateProfilePayload } from '@/modules/user/features/profile/update/domain/update.payload';
 import type { UpdateProfileResult } from '@/modules/user/features/profile/update/domain/update.types';
@@ -11,5 +12,5 @@ export const updateProfileService = async (
     full_name: payload.full_name,
   });
 
-  return { user: toApiUser(user) };
+  return { user: toApiUser(user, resolveStoredFileUrl) };
 };

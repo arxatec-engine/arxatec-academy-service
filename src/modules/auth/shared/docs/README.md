@@ -53,13 +53,13 @@ que ninguno se olvide.
 Pura a propósito, y con test propio (`src/modules/auth/shared/test/session_policy.test.ts`), porque
 concentra los números que el producto promete:
 
-| Función | Qué decide | Constante |
-| --- | --- | --- |
-| `resolveSessionTtlSeconds` (`:27`) | 30 días con `remember_me`, 12 h sin él | `AuthTokenTtlSeconds` (`src/constants/auth.ts:1-8`) |
-| `computeSessionExpiresAt` (`:30`) | el `expires_at` de la fila (caducidad por inactividad) | ídem |
-| `computeSessionAbsoluteExpiresAt` (`:36`) | el **tope absoluto** de la sesión, que es el `exp` del JWT | `AuthTokenTtlSeconds.session_absolute_max` (180 d) |
-| `isSessionRevoked` / `isSessionExpired` / `isSessionActive` (`:39,42,45`) | si la sesión sirve | — |
-| `resolveSessionRenewal` (`:48`) | **si toca escribir** y con qué fechas, sin pasarse del tope absoluto | `AuthPolicy.session_sliding_renewal_seconds` (`src/constants/auth.ts:11`) |
+| Función                                                                   | Qué decide                                                           | Constante                                                                 |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `resolveSessionTtlSeconds` (`:27`)                                        | 30 días con `remember_me`, 12 h sin él                               | `AuthTokenTtlSeconds` (`src/constants/auth.ts:1-8`)                       |
+| `computeSessionExpiresAt` (`:30`)                                         | el `expires_at` de la fila (caducidad por inactividad)               | ídem                                                                      |
+| `computeSessionAbsoluteExpiresAt` (`:36`)                                 | el **tope absoluto** de la sesión, que es el `exp` del JWT           | `AuthTokenTtlSeconds.session_absolute_max` (180 d)                        |
+| `isSessionRevoked` / `isSessionExpired` / `isSessionActive` (`:39,42,45`) | si la sesión sirve                                                   | —                                                                         |
+| `resolveSessionRenewal` (`:48`)                                           | **si toca escribir** y con qué fechas, sin pasarse del tope absoluto | `AuthPolicy.session_sliding_renewal_seconds` (`src/constants/auth.ts:11`) |
 
 **Dos caducidades y una sola autoridad.** La fila de `auth_sessions` manda: su `expires_at` se
 empuja con cada uso (contrato §3) y es lo que decide si la sesión sirve. El `exp` del JWT es otra
@@ -111,13 +111,13 @@ puede llevar el hash aunque acabe de escribirlo.
 el middleware necesita para `req.user`. Es una sola consulta en lugar de dos: cada petición
 autenticada paga este viaje (D-004), y duplicarlo doblaría el precio de la decisión.
 
-| Función | Uso |
-| --- | --- |
-| `createSession` (`:43`) | registro, login, canje de Google |
-| `findSessionById` (`:55`) | el middleware, en cada petición autenticada |
-| `revokeSession` (`:58`) | `POST /auth/logout` |
+| Función                         | Uso                                                          |
+| ------------------------------- | ------------------------------------------------------------ |
+| `createSession` (`:43`)         | registro, login, canje de Google                             |
+| `findSessionById` (`:55`)       | el middleware, en cada petición autenticada                  |
+| `revokeSession` (`:58`)         | `POST /auth/logout`                                          |
 | `revokeAllUserSessions` (`:67`) | reset de contraseña consumido (`01_reglas_globales.md` §8.4) |
-| `touchSession` (`:79`) | caducidad deslizante |
+| `touchSession` (`:79`)          | caducidad deslizante                                         |
 
 **`updateMany` en vez de `update`** en las tres escrituras (`:59,71,80`). `update` lanza
 `P2025` cuando no encuentra la fila; `updateMany` devuelve `count: 0`. Eso es lo que hace
@@ -147,12 +147,12 @@ login, canje de Google y —parcialmente— `/me`.
 
 ## 7. Lo que la fase 13 movió o añadió aquí
 
-| Pieza | De dónde viene | Quién la usa ahora |
-| --- | --- | --- |
-| `domain/account_fields.schema.ts:12-44` | `features/registration/register/domain/register.schema.ts` | el registro; `PATCH /me/profile` reutiliza solo `full_name` |
-| `domain/account_fields.ts:23-31` | `features/registration/register/utils/resolve_account_fields.ts` | el registro |
-| `data/sessions.repository.ts:74-84` | nueva | `PATCH /me/password` |
-| `data/auth_artifacts.repository.ts:4-11` | nueva | `DELETE /me` |
+| Pieza                                    | De dónde viene                                                   | Quién la usa ahora                                          |
+| ---------------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------- |
+| `domain/account_fields.schema.ts:12-44`  | `features/registration/register/domain/register.schema.ts`       | el registro; `PATCH /me/profile` reutiliza solo `full_name` |
+| `domain/account_fields.ts:23-31`         | `features/registration/register/utils/resolve_account_fields.ts` | el registro                                                 |
+| `data/sessions.repository.ts:74-84`      | nueva                                                            | `PATCH /me/password`                                        |
+| `data/auth_artifacts.repository.ts:4-11` | nueva                                                            | `DELETE /me`                                                |
 
 **`accountProfileShape`** contiene las reglas de los datos de registro. Se exporta como **shape**
 para reutilizar sus campos individualmente: el perfil usa solo `full_name` y añade el
@@ -169,3 +169,11 @@ para poder correr dentro de la transacción de quien la llama; por defecto usa e
 usuario. Vive aquí y no en `sessions.repository.ts` porque toca tres tablas del módulo y ninguna de
 ellas es "la sesión actual": es la parte de auth de la baja de cuenta. La invoca
 `modules/user`, siempre con el `tx` de su transacción.
+
+## Lectura de archivos con CloudFront
+
+Los repositorios consultan también la clave interna de los archivos administrados. Los services
+pasan un resolver a los mappers para generar URLs de lectura al responder; los DTOs conservan
+sus campos URL y no incluyen claves. Las URLs persistidas son canónicas, sin caducidad.
+Con S3, la lectura se firma; con local, se construye la URL local. Las filas sin clave conservan
+su URL externa/legacy. Ver [STORAGE](../../../../../docs/STORAGE.md).

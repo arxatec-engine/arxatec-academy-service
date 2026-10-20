@@ -12,6 +12,7 @@ import { buildSeedComments, type SeedCommentAuthor } from '@/seed/seed_comments'
 import { buildSeedCourses, type SeedCourse, type SeedLesson } from '@/seed/seed_courses';
 import { buildSeedUsers } from '@/seed/seed_data';
 import { readSeedCredentials, type SeedCredentials } from '@/seed/seed_env';
+import { seedExams } from '@/seed/seed_exams';
 import { seedNotifications, type SeedNotificationUser } from '@/seed/seed_notifications';
 
 const seedUsers = async (
@@ -190,6 +191,8 @@ const run = async (): Promise<void> => {
       where: { slug: { in: buildSeedCourses().map((course) => course.slug) } },
       select: { id: true, slug: true },
     });
+    const exams = await seedExams(prisma, courses);
+    logger.info(exams, SystemMessages.seed_exams_created);
     const notices = await seedNotifications(prisma, authors, courses);
     logger.info(notices, SystemMessages.seed_notifications_created);
     logger.info(SystemMessages.seed_finished);

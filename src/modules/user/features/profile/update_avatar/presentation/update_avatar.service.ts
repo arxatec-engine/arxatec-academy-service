@@ -1,4 +1,5 @@
 import { FileUsages } from '@/constants/files';
+import { resolveStoredFileUrl } from '@/infrastructure/storage/file_url';
 import { storage } from '@/infrastructure/storage/storage';
 import { buildStorageKey } from '@/infrastructure/storage/storage_key';
 import { validateUpload } from '@/infrastructure/storage/validate_upload';
@@ -41,5 +42,5 @@ export const updateAvatarService = async (
 
   await removeStoredAvatar(previous.avatar_key);
 
-  return { user: toApiUser(user) };
+  return { user: toApiUser(user, resolveStoredFileUrl) };
 };

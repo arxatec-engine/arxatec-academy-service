@@ -32,3 +32,7 @@ coverage
 !.vscode/extensions.json
 .idea
 .DS_Store
+
+# Claves locales de CloudFront
+/.cloudfront.private.pem
+/.cloudfront.public.pem

@@ -52,10 +52,10 @@ login y canje de Google) y no hay endpoint de refresco donde recuperarse.
 
 De las dos salidas posibles se tomó la segunda, y está escrita en el contrato §3:
 
-| Salida | Por qué no / por qué sí |
-| --- | --- |
-| Reemitir el token cada vez que la renovación deslizante escribe | **No.** Cambia el contrato de las respuestas (habría que devolver un `token` nuevo en cualquier endpoint autenticado) y obliga al adaptador del frontend a guardarlo; es un cambio de los dos lados para un problema que no lo necesita |
-| Firmar el `exp` con un **techo mayor que la ventana de inactividad** y dejar que la fila sea la única autoridad | **Sí.** Es lo que el contrato §3 ya decía en palabras ("la base de datos es la autoridad, no el JWT"): el token sin fila viva no abre nada, porque cada petición autenticada consulta `auth_sessions` |
+| Salida                                                                                                          | Por qué no / por qué sí                                                                                                                                                                                                                 |
+| --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reemitir el token cada vez que la renovación deslizante escribe                                                 | **No.** Cambia el contrato de las respuestas (habría que devolver un `token` nuevo en cualquier endpoint autenticado) y obliga al adaptador del frontend a guardarlo; es un cambio de los dos lados para un problema que no lo necesita |
+| Firmar el `exp` con un **techo mayor que la ventana de inactividad** y dejar que la fila sea la única autoridad | **Sí.** Es lo que el contrato §3 ya decía en palabras ("la base de datos es la autoridad, no el JWT"): el token sin fila viva no abre nada, porque cada petición autenticada consulta `auth_sessions`                                   |
 
 Para que la fila no prometa nunca más vida que el token, la renovación deslizante corta en ese
 mismo tope (`session_policy.ts:48-66`). Los 180 días son además una **caducidad absoluta real**:
@@ -68,18 +68,18 @@ no aparece en ninguna respuesta.
 El archivo exporta **dos funciones sobre la misma verificación**, y la fase 09 las separó a
 propósito:
 
-| Export | Devuelve | Quién la usa |
-| --- | --- | --- |
+| Export                                                                   | Devuelve                                           | Quién la usa                                                                       |
+| ------------------------------------------------------------------------ | -------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | `readSessionToken` (`src/infrastructure/jwt/verify_session_token.ts:27`) | `{ valid, payload }` o `{ valid: false, expired }` | `resolve_request_session.ts`, que necesita **decidir** qué hacer con un token roto |
-| `verifySessionToken` (`:44`) | el payload, o **lanza** | lo que quede que prefiera la excepción |
+| `verifySessionToken` (`:44`)                                             | el payload, o **lanza**                            | lo que quede que prefiera la excepción                                             |
 
 `verifySessionToken` es **quien reparte los dos códigos que el frontend necesita distinguir**
 (`:51`):
 
-| Causa | `meta.code` | Por qué |
-| --- | --- | --- |
-| `TokenExpiredError` (`:36`) | `SESSION_EXPIRED` | pantalla E7, conservando el destino de retorno |
-| firma inválida, otro emisor, otro algoritmo, forma inesperada | `UNAUTHENTICATED` | a login, sin ceremonia |
+| Causa                                                         | `meta.code`       | Por qué                                        |
+| ------------------------------------------------------------- | ----------------- | ---------------------------------------------- |
+| `TokenExpiredError` (`:36`)                                   | `SESSION_EXPIRED` | pantalla E7, conservando el destino de retorno |
+| firma inválida, otro emisor, otro algoritmo, forma inesperada | `UNAUTHENTICATED` | a login, sin ceremonia                         |
 
 **Por qué la variante que no lanza.** `GET /courses/:slug` es público con Bearer opcional: un token
 caducado tiene que dejar pasar al visitante como anónimo, no devolver `401`. Un `try/catch`
@@ -150,11 +150,11 @@ registra destinatario y asunto.
 **Ninguna plantilla loguea nada.** Las tres son funciones puras que devuelven `{ subject, html, text }`
 (`src/infrastructure/email/email.types.ts:1-5`); la única que escribe es `sendEmail`.
 
-| Plantilla | Disparador | Enlace |
-| --- | --- | --- |
-| `buildVerificationEmail` (`email/templates/verification_email.ts:12`) | registro y reenvío | `${FRONTEND_URL}/verificar-correo?token=…` (24 h) |
-| `buildPasswordResetEmail` (`email/templates/password_reset_email.ts:12`) | `/auth/password/forgot` | `${FRONTEND_URL}/restablecer-contrasena?token=…` (1 h) |
-| `buildPasswordChangedEmail` (`email/templates/password_changed_email.ts:5`) | reset consumido | **ninguno**, es un aviso |
+| Plantilla                                                                   | Disparador              | Enlace                                                 |
+| --------------------------------------------------------------------------- | ----------------------- | ------------------------------------------------------ |
+| `buildVerificationEmail` (`email/templates/verification_email.ts:12`)       | registro y reenvío      | `${FRONTEND_URL}/verificar-correo?token=…` (24 h)      |
+| `buildPasswordResetEmail` (`email/templates/password_reset_email.ts:12`)    | `/auth/password/forgot` | `${FRONTEND_URL}/restablecer-contrasena?token=…` (1 h) |
+| `buildPasswordChangedEmail` (`email/templates/password_changed_email.ts:5`) | reset consumido         | **ninguno**, es un aviso                               |
 
 Las rutas salen de `FrontendRoutes` (`src/constants/endpoints.ts:78-88`) y están en español porque
 son producto (`01_reglas_globales.md` §1); los textos, de `AuthMessages.email`
@@ -185,5 +185,6 @@ producto detrás (qué formato y qué tamaño se acepta en cada uno de los tres 
 Lo mínimo que hay que saber desde fuera: se importa `storage`
 (`src/infrastructure/storage/storage.ts:7`), que es un `StoragePort` ya elegido por
 `env.STORAGE_DRIVER`, y **antes de guardar nada se llama a `validateUpload`**
-(`src/infrastructure/storage/validate_upload.ts:35`). El adaptador de S3 está declarado y **lanza**;
-el de desarrollo escribe bajo `STORAGE_LOCAL_PATH` y se sirve por `/files`.
+(`src/infrastructure/storage/validate_upload.ts:35`). El adaptador S3 guarda/elimina en AWS y firma lecturas CloudFront con SHA256;
+el de desarrollo escribe bajo `STORAGE_LOCAL_PATH` y se sirve por `/files`. La DB conserva
+URL canónica y clave; `readUrl` genera la firma temporal al responder. Ver [STORAGE](../../../docs/STORAGE.md).

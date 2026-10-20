@@ -8,6 +8,7 @@ import { HttpStatusCodes } from '@/constants/http_status_codes';
 import { AdminCourseMessages } from '@/constants/messages/admin_courses';
 import { ValidationKeys } from '@/constants/validation_keys';
 import { course_status } from '@/generated/enums';
+import { resolveStoredFileUrl } from '@/infrastructure/storage/file_url';
 import { storage } from '@/infrastructure/storage/storage';
 import { buildStorageKey } from '@/infrastructure/storage/storage_key';
 import { validateUpload } from '@/infrastructure/storage/validate_upload';
@@ -45,7 +46,7 @@ const requiredCourse = async (id: string): Promise<AdminCourseRecord> => {
 const serializeCourse = (course: AdminCourseRecord, published_lesson_count: number) => ({
   id: course.id, slug: course.slug, title: course.title,
   short_description: course.short_description, long_description: course.long_description,
-  topic: course.topic, level: course.level, cover_image_url: course.cover_image_url,
+  topic: course.topic, level: course.level, cover_image_url: resolveStoredFileUrl(course.cover_image_url, course.cover_image_key),
   teacher: course.teacher,
   status: course.status, catalog_order: course.catalog_order,
   published_at: course.published_at?.toISOString() ?? null,

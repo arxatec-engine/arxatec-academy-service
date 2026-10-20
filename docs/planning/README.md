@@ -30,7 +30,7 @@ viven dentro de `courses`; no son un séptimo servicio ni requieren otro actor d
 - [Contratos HTTP](http_contracts/README.md): convenciones, paginaciones, ejemplos y errores.
 - [Métricas](metrics/README.md): totales, fechas, estado actual y cobertura.
 - [Permisos y trazabilidad](permissions_audit/README.md): identidad real, campos permitidos y límites.
-- [Archivos](storage/README.md): acceso público, limpieza, S3 pendiente y criterios.
+- [Archivos](storage/README.md): local, S3/CloudFront firmado, limpieza y validación operativa.
 - [Reutilización de endpoints](endpoint_reuse/README.md): qué comparten alumno, catálogo y panel.
 - [Entrega y verificación](delivery/README.md): dependencias, fixtures y cierre de pendientes.
 

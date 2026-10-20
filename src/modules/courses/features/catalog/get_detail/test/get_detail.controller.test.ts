@@ -3,6 +3,9 @@ import request from 'supertest';
 
 jest.mock('@/config/env', () => ({
   env: {
+    STORAGE_DRIVER: 'local',
+    STORAGE_LOCAL_PATH: 'storage',
+    STORAGE_PUBLIC_URL: 'http://localhost:3001/files',
     JWT_SECRET: 'secreto-de-pruebas-con-mas-de-32-caracteres',
     JWT_ISSUER: 'arxatec-academy-test',
     LOG_LEVEL: 'silent',
@@ -59,7 +62,7 @@ const COURSE: CourseDetailRecord = {
   long_description: 'Seis lecciones para entender de qué hablan cuando hablan de legal tech.',
   topic: course_topic.FIRST_STEPS,
   level: course_level.INTRODUCTORY,
-  cover_image_url: null,
+  cover_image_key: null, cover_image_url: null,
   published_at: new Date('2026-06-01T12:00:00.000Z'),
 };
 

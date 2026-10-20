@@ -8,7 +8,7 @@ import type {
 
 const COMMENT_AUTHOR_SELECT = {
   full_name: true,
-  avatar_url: true,
+  avatar_url: true, avatar_key: true,
   organization: true,
   is_independent: true,
   role: true,

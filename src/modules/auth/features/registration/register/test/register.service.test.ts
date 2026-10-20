@@ -86,7 +86,7 @@ const user: AuthUserRecord = {
   is_independent: false,
   city: user_city.LIMA,
   city_other: null,
-  avatar_url: null,
+  avatar_key: null, avatar_url: null,
   email_verified_at: null,
   auth_provider: auth_provider.PASSWORD,
   created_at: NOW,

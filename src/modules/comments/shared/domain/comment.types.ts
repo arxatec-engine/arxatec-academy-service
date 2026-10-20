@@ -3,6 +3,7 @@ import type { comment_status, user_role } from '@/generated/enums';
 export interface CommentAuthorRecord {
   full_name: string;
   avatar_url: string | null;
+  avatar_key: string | null;
   organization: string | null;
   is_independent: boolean;
   role: user_role;

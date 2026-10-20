@@ -215,3 +215,11 @@ tres campos del perfil; el id queda en la API administrativa. Los perfiles no so
 cuentas de acceso. El guardado del curso y de su docente comparte una transacción y avanza la
 marca de edición incluso cuando solo cambia el docente. Las pruebas PostgreSQL están en
 `tests/integration/postgres/teachers_flow.test.ts`.
+
+## Lectura de archivos con CloudFront
+
+Los repositorios consultan también la clave interna de los archivos administrados. Los services
+pasan un resolver a los mappers para generar URLs de lectura al responder; los DTOs conservan
+sus campos URL y no incluyen claves. Las URLs persistidas son canónicas, sin caducidad.
+Con S3, la lectura se firma; con local, se construye la URL local. Las filas sin clave conservan
+su URL externa/legacy. Ver [STORAGE](../../../../../docs/STORAGE.md).

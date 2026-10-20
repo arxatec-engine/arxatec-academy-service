@@ -16,6 +16,12 @@ import { directoryRouter } from '@/modules/user/features/directory/presentation/
 
 export const routes: Router = Router();
 
+// API payloads can contain temporary, user-authorized CloudFront URLs.
+routes.use(ApiPrefix, (_req, res, next) => {
+  res.setHeader('Cache-Control', 'private, no-store');
+  next();
+});
+
 routes.use(`${ApiPrefix}${AuthRoutePrefix}`, authRouter);
 routes.use(`${ApiPrefix}${CoursesRoutePrefix}`, coursesRouter);
 routes.use(`${ApiPrefix}${AdminRoutePrefix}${AdminCourseRoutePrefix}`, adminCoursesRouter);

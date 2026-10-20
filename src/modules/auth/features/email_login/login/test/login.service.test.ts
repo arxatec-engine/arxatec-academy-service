@@ -44,7 +44,7 @@ const passwordUser: AuthUserWithPassword = {
   is_independent: false,
   city: user_city.LIMA,
   city_other: null,
-  avatar_url: null,
+  avatar_key: null, avatar_url: null,
   email_verified_at: null,
   auth_provider: auth_provider.PASSWORD,
   created_at: new Date('2026-05-12T10:00:00.000Z'),

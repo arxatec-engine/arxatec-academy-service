@@ -37,6 +37,7 @@ export const createLocalStorage = ({ root_path, public_url }: LocalStorageOption
 
   return {
     publicUrl,
+    readUrl: publicUrl,
 
     save: async ({ key, content, mime_type }: SaveFileInput): Promise<StoredFile> => {
       const path = toAbsolutePath(key);

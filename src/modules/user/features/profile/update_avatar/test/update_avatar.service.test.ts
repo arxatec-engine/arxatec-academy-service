@@ -12,7 +12,7 @@ jest.mock('@/modules/user/shared/data/user_account.repository', () => ({
 }));
 
 jest.mock('@/infrastructure/storage/storage', () => ({
-  storage: { save: jest.fn(), remove: jest.fn(), publicUrl: jest.fn() },
+  storage: { save: jest.fn(), remove: jest.fn(), publicUrl: jest.fn(), readUrl: jest.fn() },
 }));
 
 jest.mock('@/config/logger', () => ({
@@ -23,6 +23,7 @@ const findAvatarMock = jest.mocked(findUserAvatar);
 const setAvatarMock = jest.mocked(setUserAvatar);
 const saveMock = jest.spyOn(storage, 'save');
 const removeMock = jest.spyOn(storage, 'remove');
+const readUrlMock = jest.spyOn(storage, 'readUrl');
 
 const PNG = Buffer.concat([
   Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
@@ -42,7 +43,8 @@ const command = (overrides: Record<string, unknown> = {}) => ({
 
 beforeEach(() => {
   findAvatarMock.mockResolvedValue({ avatar_key: 'avatars/vieja.png' });
-  setAvatarMock.mockResolvedValue(userRecord({ avatar_url: STORED_URL }));
+  setAvatarMock.mockResolvedValue(userRecord({ avatar_url: STORED_URL, avatar_key: 'avatars/nueva.png' }));
+  readUrlMock.mockReturnValue(STORED_URL);
   saveMock.mockResolvedValue({
     key: 'avatars/nueva.png',
     url: STORED_URL,
@@ -53,6 +55,15 @@ beforeEach(() => {
 });
 
 describe('updateAvatarService', () => {
+  it('devuelve una lectura temporal y persiste solamente la URL canónica', async () => {
+    readUrlMock.mockReturnValue('https://cdn.test/avatars/nueva.png?Signature=temporary');
+    const result = await updateAvatarService(command());
+    expect(setAvatarMock).toHaveBeenCalledWith(expect.objectContaining({ avatar_url: STORED_URL }));
+    expect(readUrlMock).toHaveBeenCalledWith('avatars/nueva.png');
+    expect(result.user.avatar_url).toContain('Signature=temporary');
+    expect(result.user).not.toHaveProperty('avatar_key');
+  });
+
   it('guarda el archivo con una clave del prefijo de avatares y escribe url y clave', async () => {
     const result = await updateAvatarService(command());
 

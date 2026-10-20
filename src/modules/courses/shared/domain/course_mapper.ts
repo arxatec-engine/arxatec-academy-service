@@ -1,3 +1,4 @@
+import type { FileUrlResolver } from '@/infrastructure/storage/storage.types';
 import type {
   ApiCatalogCourse,
   ApiCourseDetail,
@@ -12,13 +13,14 @@ import type {
 export const toApiCatalogCourse = (
   course: CourseCatalogRecord,
   totals: CourseTotals,
+  resolveFileUrl: FileUrlResolver,
 ): ApiCatalogCourse => ({
   slug: course.slug,
   title: course.title,
   short_description: course.short_description,
   topic: course.topic,
   level: course.level,
-  cover_image_url: course.cover_image_url,
+  cover_image_url: resolveFileUrl(course.cover_image_url, course.cover_image_key),
   lesson_count: totals.lesson_count,
   total_duration_seconds: totals.total_duration_seconds,
 });
@@ -26,18 +28,21 @@ export const toApiCatalogCourse = (
 export const toApiCourseDetail = (
   course: CourseDetailRecord,
   totals: CourseContentTotals,
+  resolveFileUrl: FileUrlResolver,
 ): ApiCourseDetail => ({
-  teacher: course.teacher ? {
-    full_name: course.teacher.full_name,
-    biography: course.teacher.biography,
-    photo_url: course.teacher.photo_url,
-  } : null,
+  teacher: course.teacher
+    ? {
+        full_name: course.teacher.full_name,
+        biography: course.teacher.biography,
+        photo_url: course.teacher.photo_url,
+      }
+    : null,
   slug: course.slug,
   title: course.title,
   long_description: course.long_description,
   topic: course.topic,
   level: course.level,
-  cover_image_url: course.cover_image_url,
+  cover_image_url: resolveFileUrl(course.cover_image_url, course.cover_image_key),
   lesson_count: totals.lesson_count,
   video_count: totals.video_count,
   article_count: totals.article_count,

@@ -15,6 +15,7 @@ export interface LessonLockedRecord {
 export interface LessonResourceRecord {
   title: string;
   file_url: string;
+  file_key: string | null;
   mime_type: string;
   size_bytes: number;
 }

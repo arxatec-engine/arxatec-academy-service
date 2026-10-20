@@ -10,6 +10,7 @@ export interface AuthUserRecord {
   city: user_city;
   city_other: string | null;
   avatar_url: string | null;
+  avatar_key: string | null;
   email_verified_at: Date | null;
   auth_provider: auth_provider;
   created_at: Date;

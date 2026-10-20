@@ -756,6 +756,16 @@ Con almacenamiento local, GET `/files/<key>` sirve bytes públicos, sin JWT ni s
 con driver s3 esa ruta estática se omite. Los directorios no tienen índice y se deniegan dotfiles.
 La firma/MIME/tamaño se valida al subir, no al solicitar una URL ya conocida.
 
+Con S3, las portadas y avatares nuevos usan `/public/` con URL sin firma; los recursos
+usan `/private/` y reciben URLs CloudFront firmadas al responder (SHA256, TTL de 300 s por defecto). La DB conserva URL canónica
+y clave; los DTOs conservan sus campos `*_url` y no publican claves internas. Filas legacy sin
+clave y URLs externas conservan su dirección original. Una lección bloqueada no firma recursos.
+El cliente renueva enlaces vencidos consultando otra vez la API; no guardarlos como URLs permanentes.
+La API añade `Cache-Control: private, no-store` para sus respuestas.
+
+Los fallos de S3 o de firma devuelven `503` con `meta.code: STORAGE_UNAVAILABLE`, sin detalles
+del proveedor ni fallback a URLs sin firma. La configuración inválida impide el arranque.
+
 [STORAGE](STORAGE.md) detalla acceso y persistencia; [TESTING](TESTING.md) define el entorno de
 verificación. Este contrato describe el código disponible, sin afirmar una nueva prueba en vivo
 de las integraciones externas o de producción.

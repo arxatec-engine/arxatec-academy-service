@@ -1,3 +1,4 @@
+import type { FileUrlResolver } from '@/infrastructure/storage/storage.types';
 import type { CourseDetailRecord } from '@/modules/courses/shared/domain/course.types';
 import type {
   ApiLessonCourse,
@@ -15,9 +16,12 @@ const toApiLessonVideo = (lesson: LessonUnlockedRecord): ApiLessonVideo | null =
     ? null
     : { provider: lesson.video_provider, external_id: lesson.video_external_id };
 
-export const toApiLessonResource = (resource: LessonResourceRecord): ApiLessonResource => ({
+export const toApiLessonResource = (
+  resource: LessonResourceRecord,
+  resolveFileUrl: FileUrlResolver,
+): ApiLessonResource => ({
   title: resource.title,
-  file_url: resource.file_url,
+  file_url: resolveFileUrl(resource.file_url, resource.file_key),
   mime_type: resource.mime_type,
   size_bytes: resource.size_bytes,
 });
@@ -34,7 +38,10 @@ export const toApiLessonLocked = (lesson: LessonLockedRecord): ApiLessonLocked =
   reading_minutes: lesson.reading_minutes,
 });
 
-export const toApiLessonUnlocked = (lesson: LessonUnlockedRecord): ApiLessonUnlocked => ({
+export const toApiLessonUnlocked = (
+  lesson: LessonUnlockedRecord,
+  resolveFileUrl: FileUrlResolver,
+): ApiLessonUnlocked => ({
   id: lesson.id,
   slug: lesson.slug,
   title: lesson.title,
@@ -47,7 +54,7 @@ export const toApiLessonUnlocked = (lesson: LessonUnlockedRecord): ApiLessonUnlo
   article_body: lesson.article_body,
   reading_minutes: lesson.reading_minutes,
   transcript: lesson.transcript,
-  resources: lesson.resources.map(toApiLessonResource),
+  resources: lesson.resources.map((resource) => toApiLessonResource(resource, resolveFileUrl)),
   updated_at: lesson.updated_at.toISOString(),
 });
 

@@ -2,6 +2,7 @@ import { ErrorCodes } from '@/constants/error_codes';
 import { HttpStatusCodes } from '@/constants/http_status_codes';
 import { CourseMessages } from '@/constants/messages/courses';
 import { course_level, course_topic, lesson_type, video_provider } from '@/generated/enums';
+import { storage } from '@/infrastructure/storage/storage';
 import { getDetailService } from '@/modules/courses/features/lessons/get_detail/presentation/get_detail.service';
 import {
   findPublishedCourseBySlug,
@@ -39,7 +40,7 @@ const COURSE: CourseDetailRecord = {
   long_description: 'Seis lecciones para entender de qué hablan cuando hablan de legal tech.',
   topic: course_topic.FIRST_STEPS,
   level: course_level.INTRODUCTORY,
-  cover_image_url: null,
+  cover_image_key: null, cover_image_url: null,
   published_at: new Date('2026-06-01T12:00:00.000Z'),
 };
 
@@ -117,13 +118,13 @@ const UNLOCKED: LessonUnlockedRecord = {
   resources: [
     {
       title: 'Mapa de las tres capas',
-      file_url: 'http://localhost:3010/files/lesson_resources/mapa.pdf',
+      file_key: null, file_url: 'http://localhost:3010/files/lesson_resources/mapa.pdf',
       mime_type: 'application/pdf',
       size_bytes: 184320,
     },
     {
       title: 'Checklist: qué revisar antes de comprar software',
-      file_url: 'http://localhost:3010/files/lesson_resources/checklist.pdf',
+      file_key: null, file_url: 'http://localhost:3010/files/lesson_resources/checklist.pdf',
       mime_type: 'application/pdf',
       size_bytes: 96256,
     },
@@ -302,6 +303,28 @@ describe('getDetailService · la lección bloqueada', () => {
 });
 
 describe('getDetailService · la lección abierta', () => {
+  it('firma los recursos autorizados y mantiene sus claves fuera del DTO', async () => {
+    findPublishedLessonUnlockedMock.mockResolvedValue({ ...UNLOCKED,
+      resources: [{ ...UNLOCKED.resources[0], file_key: 'lesson_resources/uuid.pdf' }] });
+    const readUrl = jest.spyOn(storage, 'readUrl').mockReturnValue('https://cdn.test/file?Signature=one');
+    const result = await getDetailService({ course_slug: COURSE.slug,
+      lesson_slug: VIDEO_SLUG, has_session: true });
+    expect(result.locked).toBe(false);
+    if (result.locked) {throw new Error('Expected unlocked lesson');}
+    expect(readUrl).toHaveBeenCalledWith('lesson_resources/uuid.pdf');
+    expect(result.view.lesson.resources[0]?.file_url).toBe('https://cdn.test/file?Signature=one');
+    expect(result.view.lesson.resources[0]).not.toHaveProperty('file_key');
+  });
+
+  it('no genera enlaces cuando la lección está bloqueada', async () => {
+    const readUrl = jest.spyOn(storage, 'readUrl');
+    const result = await getDetailService({ course_slug: COURSE.slug,
+      lesson_slug: VIDEO_SLUG, has_session: false });
+    expect(result.locked).toBe(true);
+    expect(readUrl).not.toHaveBeenCalled();
+    expect(findPublishedLessonUnlockedMock).not.toHaveBeenCalled();
+  });
+
   it('un video viaja como referencia y con su transcripción (la red de E6)', async () => {
     const result = await getDetailService({
       course_slug: COURSE.slug,

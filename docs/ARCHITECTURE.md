@@ -17,7 +17,7 @@ la de Admin; la implementación mantiene los contratos propios de Academy.
 | Autenticación        | JWT HS256, sesiones persistidas, Passport Google OAuth 2.0                   |
 | Contraseñas y tokens | Argon2id, tokens aleatorios y SHA-256 para tokens de un solo uso             |
 | Correo               | Nodemailer SMTP en desarrollo y producción; transporte log solo en pruebas   |
-| Archivos             | Puerto de almacenamiento, adaptador local operativo, S3 pendiente            |
+| Archivos             | Puerto de almacenamiento, local y S3 con CloudFront firmado                  |
 | Video                | Puerto oEmbed con adaptadores Vimeo, YouTube y fake                          |
 | Pruebas              | Jest, SWC, Supertest y PostgreSQL real para integración                      |
 
@@ -208,8 +208,9 @@ en logs HTTP. El transporte de correo log solo se admite en pruebas e incluye el
 tratar ese log como sensible. Desarrollo y producción exigen SMTP.
 
 Los archivos se validan por uso, MIME, firma y tamaño. El driver local sirve URLs públicas;
-la clave interna permite limpieza, no autorización de bytes. S3 permanece sin implementar.
-Cambiar la base pública de almacenamiento no cambia URLs ya persistidas.
+S3 usa un origen privado y URLs CloudFront firmadas al responder. La DB conserva URL canónica
+y clave interna; las filas con clave resuelven sobre la base vigente. Las respuestas API usan
+`private, no-store`. El acceso a los recursos se decide antes de firmar. Ver [STORAGE](STORAGE.md).
 
 ## 10. Verificación y evolución
 

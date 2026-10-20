@@ -6,16 +6,16 @@ llega lo que usan **varias actions del mismo módulo**, y lo que cruzaría a otr
 
 ## 1. `data/comments.repository.ts` — tres `select` y ninguna regla
 
-| `select` | Líneas | Para qué |
-| --- | --- | --- |
-| `COMMENT_AUTHOR_SELECT` | `:9-15` | las cinco columnas de `users` que pinta la tarjeta del autor |
-| `COMMENT_SELECT` | `:17-23` | el comentario tal y como sale por la API, con su autor anidado |
-| `COMMENT_REF_SELECT` | `:25-30` | lo mínimo para **decidir**: id, lección, padre y estado |
+| `select`                | Líneas   | Para qué                                                       |
+| ----------------------- | -------- | -------------------------------------------------------------- |
+| `COMMENT_AUTHOR_SELECT` | `:9-15`  | las cinco columnas de `users` que pinta la tarjeta del autor   |
+| `COMMENT_SELECT`        | `:17-23` | el comentario tal y como sale por la API, con su autor anidado |
+| `COMMENT_REF_SELECT`    | `:25-30` | lo mínimo para **decidir**: id, lección, padre y estado        |
 
 `COMMENT_AUTHOR_SELECT` **no pide `email`**, y esa es la razón por la que existe como constante
 con nombre en vez de estar escrito dentro de la consulta: es la línea que alguien podría ampliar
 sin darse cuenta, y así al menos está sola, con nombre y con un test que la mira
-(`../test/comments_repository.test.ts`, *"el select del autor NO pide el correo"*).
+(`../test/comments_repository.test.ts`, _"el select del autor NO pide el correo"_).
 
 `COMMENT_REF_SELECT` existe por lo contrario: `requireRootComment` solo necesita saber si el
 comentario existe, si está visible y si tiene padre. Traer el cuerpo y el autor para tirarlos sería
@@ -86,11 +86,11 @@ rompería esa lectura.
 
 `requireRootComment` (`comment_target.ts:24-40`) distingue tres casos y cada uno tiene su respuesta:
 
-| Caso | Respuesta | Por qué |
-| --- | --- | --- |
-| no existe | `404 NOT_FOUND` | nada que confirmar |
-| existe pero está `HIDDEN` o `DELETED` | `404 NOT_FOUND` | para el público no existe; decir `403` confirmaría que hubo algo ahí |
-| existe, visible, pero **tiene padre** | `422 VALIDATION_ERROR` | el hilo tiene un solo nivel y el cliente pidió algo que no cabe |
+| Caso                                  | Respuesta              | Por qué                                                              |
+| ------------------------------------- | ---------------------- | -------------------------------------------------------------------- |
+| no existe                             | `404 NOT_FOUND`        | nada que confirmar                                                   |
+| existe pero está `HIDDEN` o `DELETED` | `404 NOT_FOUND`        | para el público no existe; decir `403` confirmaría que hubo algo ahí |
+| existe, visible, pero **tiene padre** | `422 VALIDATION_ERROR` | el hilo tiene un solo nivel y el cliente pidió algo que no cabe      |
 
 `requireComment` (`:14-22`) **no mira el estado**: reportar un comentario que un moderador ya
 ocultó es inofensivo y evita explicarle al que reporta por qué su clic no hizo nada.
@@ -100,9 +100,9 @@ ocultó es inofensivo y evita explicarle al que reporta por qué su clic no hizo
 `data/comments.repository.ts:79-85` borra los reportes que hizo un usuario y después sus
 comentarios. La llama la baja de cuenta (`DELETE /me`) pasándole **el cliente de su transacción**.
 
-**Borra de verdad y no marca `DELETED`.** La pantalla 11 promete *"Se borran tu progreso y tus
-comentarios"*, y `comments.user_id` es `SetNull` (`prisma/schema/comments.prisma:16`): dejar que
-el motor hiciera su trabajo convertiría esa promesa en *"tus comentarios se quedan sin autor"*,
+**Borra de verdad y no marca `DELETED`.** La pantalla 11 promete _"Se borran tu progreso y tus
+comentarios"_, y `comments.user_id` es `SetNull` (`prisma/schema/comments.prisma:16`): dejar que
+el motor hiciera su trabajo convertiría esa promesa en _"tus comentarios se quedan sin autor"_,
 que es otra cosa. El estado `DELETED` del enum es del moderador de la fase 16 —un comentario
 retirado que sigue existiendo—, y confundir los dos casos haría que la baja pareciera moderación.
 
@@ -111,3 +111,11 @@ retirado que sigue existiendo—, y confundir los dos casos haría que la baja p
 comprobada con `curl` en la fase 13. Lo que un vecino escribió por su cuenta no se toca.
 
 El orden —reportes antes que comentarios— está fijado en `../test/comments_repository.test.ts`.
+
+## Lectura de archivos con CloudFront
+
+Los repositorios consultan también la clave interna de los archivos administrados. Los services
+pasan un resolver a los mappers para generar URLs de lectura al responder; los DTOs conservan
+sus campos URL y no incluyen claves. Las URLs persistidas son canónicas, sin caducidad.
+Con S3, la lectura se firma; con local, se construye la URL local. Las filas sin clave conservan
+su URL externa/legacy. Ver [STORAGE](../../../../../docs/STORAGE.md).

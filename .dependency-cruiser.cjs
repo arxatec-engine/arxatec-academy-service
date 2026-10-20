@@ -15,7 +15,7 @@ module.exports = {
         'Un modulo que nadie importa es codigo muerto. src/constants queda fuera: es un catalogo hoja que publican para los slices que aun no existen.',
       from: {
         orphan: true,
-        pathNot: ['\\.d\\.ts$', '^src/constants/', '^src/seed/index\\.ts$', '^src/server\\.ts$'],
+        pathNot: ['\\.d\\.ts$', '^src/constants/', '^src/seed/(index|exams)\\.ts$', '^src/server\\.ts$'],
       },
       to: {},
     },

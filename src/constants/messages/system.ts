@@ -13,6 +13,8 @@ export const SystemMessages = {
   seed_user_created: 'Usuario de semilla listo',
   seed_course_created: 'Curso de semilla listo',
   seed_notifications_created: 'Avisos y solicitudes de tema de semilla listos',
+  seed_exams_created: 'Exámenes de los cursos de semilla listos',
+  seed_exam_questions_missing: 'Faltan preguntas para un curso de la semilla',
   seed_lesson_content_invalid:
     'Una lección de la semilla no cumple la política de contenido: revisa src/seed/seed_courses.ts',
   seed_finished: 'Semilla terminada',

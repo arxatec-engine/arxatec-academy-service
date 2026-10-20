@@ -8,18 +8,18 @@ Lo que comparten los seis slices del módulo. Tres archivos de datos y dos de do
 alternativa —un `data/` por slice— habría repartido cuatro `select` distintos de la misma tabla
 por cuatro carpetas, y el que importa aquí es que **ninguno de ellos deje salir `password_hash`**.
 
-| `select` | Líneas | Para qué |
-| --- | --- | --- |
-| `USER_PROFILE_SELECT` | `:17-30` | lo que devuelve la API: las doce columnas de `toApiUser`, ni una más |
-| `USER_CREDENTIALS_SELECT` | `:32-36` | `id`, `email` y `password_hash`, **solo** para comparar |
-| `USER_AVATAR_SELECT` | `:38` | la clave de almacenamiento, para poder borrar el archivo |
-| `USER_SUMMARY_SELECT` | `:40` | `created_at`, el *"Miembro desde…"* |
+| `select`                  | Líneas   | Para qué                                                                                  |
+| ------------------------- | -------- | ----------------------------------------------------------------------------------------- |
+| `USER_PROFILE_SELECT`     | `:17-30` | campos de `toApiUser` más `avatar_key`, que permite firmar la lectura y no sale en el DTO |
+| `USER_CREDENTIALS_SELECT` | `:32-36` | `id`, `email` y `password_hash`, **solo** para comparar                                   |
+| `USER_AVATAR_SELECT`      | `:38`    | la clave de almacenamiento, para poder borrar el archivo                                  |
+| `USER_SUMMARY_SELECT`     | `:40`    | `created_at`, el _"Miembro desde…"_                                                       |
 
 **`password_hash` se lee en un sitio y no sale de él.** `findUserCredentialsById` (`:42-45`)
 devuelve un `UserCredentialsRecord` que **no** tiene mapper a la API: la única forma de que llegue
 a una respuesta sería escribirlo a mano. `USER_PROFILE_SELECT`, que sí se serializa, no lo pide —y
 hay un test que compara la lista de claves entera
-(`../test/user_account_repository.test.ts`, *"nunca pide password_hash"*).
+(`../test/user_account_repository.test.ts`, _"nunca pide password_hash"_).
 
 `updateUserProfile` (`:53-61`) escribe únicamente **`full_name`**. El formulario ya no solicita
 organización, condición de independiente ni ciudad. El `data` del `update` tampoco incluye el
@@ -41,7 +41,7 @@ sesiones/tokens/OAuth → la fila de `users`. El porqué del orden y del borrado
 usara `prisma` por su cuenta escribiría **fuera** de la transacción: si el borrado de `users`
 fallara después, el progreso ya no estaría y la cuenta sí. Por eso la firma de las tres fachadas
 es `(user_id, client = prisma)` y aquí siempre se pasa el segundo argumento; hay un test que lo
-comprueba (*"todo va dentro de la transaccion"*).
+comprueba (_"todo va dentro de la transaccion"_).
 
 ## 3. `removeStoredAvatar` no puede tumbar una petición
 

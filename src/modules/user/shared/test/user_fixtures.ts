@@ -3,6 +3,8 @@ import type { ApiUser, AuthUserRecord } from '@/modules/auth/shared/domain/auth_
 import { toApiUser } from '@/modules/auth/shared/domain/user_mapper';
 import { TEST_USER_ID } from '@/modules/user/shared/test/user_test_app';
 
+const preserveFileUrl = <T extends string | null>(url: T): T => url;
+
 export const userRecord = (overrides: Partial<AuthUserRecord> = {}): AuthUserRecord => ({
   id: TEST_USER_ID,
   full_name: 'Maria Quispe Rojas',
@@ -12,7 +14,7 @@ export const userRecord = (overrides: Partial<AuthUserRecord> = {}): AuthUserRec
   is_independent: false,
   city: user_city.LIMA,
   city_other: null,
-  avatar_url: null,
+  avatar_key: null, avatar_url: null,
   email_verified_at: null,
   auth_provider: auth_provider.PASSWORD,
   created_at: new Date('2026-05-12T10:00:00.000Z'),
@@ -20,7 +22,7 @@ export const userRecord = (overrides: Partial<AuthUserRecord> = {}): AuthUserRec
 });
 
 export const apiUser = (overrides: Partial<AuthUserRecord> = {}): ApiUser =>
-  toApiUser(userRecord(overrides));
+  toApiUser(userRecord(overrides), preserveFileUrl);
 
 export const userRow = (overrides: Partial<AuthUserRecord> = {}) => ({
   ...userRecord(overrides),

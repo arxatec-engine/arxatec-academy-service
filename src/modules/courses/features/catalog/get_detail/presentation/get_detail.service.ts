@@ -1,3 +1,4 @@
+import { resolveStoredFileUrl } from '@/infrastructure/storage/file_url';
 import { ErrorCodes } from '@/constants/error_codes';
 import { HttpStatusCodes } from '@/constants/http_status_codes';
 import { CourseMessages } from '@/constants/messages/courses';
@@ -27,7 +28,7 @@ export const getDetailService = async (payload: GetDetailPayload): Promise<GetDe
   const lessons = await findPublishedLessonsByCourseId(course.id);
 
   return {
-    course: toApiCourseDetail(course, summarizeLessons(lessons)),
+    course: toApiCourseDetail(course, summarizeLessons(lessons), resolveStoredFileUrl),
     lessons: lessons.map((lesson) =>
       toApiLessonSummary(
         lesson,

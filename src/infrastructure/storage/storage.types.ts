@@ -17,6 +17,12 @@ export interface StoragePort {
   save(input: SaveFileInput): Promise<StoredFile>;
   remove(key: string): Promise<void>;
   publicUrl(key: string): string;
+  readUrl(key: string): string;
+}
+
+export interface FileUrlResolver {
+  (url: string, key: string | null): string;
+  (url: string | null, key: string | null): string | null;
 }
 
 export interface UploadCandidate {

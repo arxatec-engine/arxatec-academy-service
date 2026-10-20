@@ -24,7 +24,7 @@ const course = {
   long_description: '',
   topic: course_topic.FIRST_STEPS,
   level: course_level.INTRODUCTORY,
-  cover_image_url: null,
+  cover_image_url: null, cover_image_key: null,
   published_at: new Date(),
 };
 beforeEach(() => {

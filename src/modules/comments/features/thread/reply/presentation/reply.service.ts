@@ -1,3 +1,4 @@
+import { resolveStoredFileUrl } from '@/infrastructure/storage/file_url';
 import type { ReplyCommentPayload } from '@/modules/comments/features/thread/reply/domain/reply.payload';
 import type { ReplyCommentResult } from '@/modules/comments/features/thread/reply/domain/reply.types';
 import { createComment } from '@/modules/comments/shared/data/comments.repository';
@@ -15,5 +16,5 @@ export const replyCommentService = async (
     body: payload.body,
   });
 
-  return { comment: toApiComment(comment) };
+  return { comment: toApiComment(comment, resolveStoredFileUrl) };
 };

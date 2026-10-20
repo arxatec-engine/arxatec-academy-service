@@ -17,7 +17,7 @@ y describe los contratos y las limitaciones de la implementación de Academy.
 | [Rendimiento](PERFORMANCE.md)                        | Consultas, memoria, límites y aspectos que requieren medición                |
 | [Pruebas](TESTING.md)                                | Comandos reales, fixtures, PostgreSQL desechable y smoke HTTP                |
 | [Despliegue](DEPLOYMENT.md)                          | Instalación, generación de Prisma, migraciones, ejecución y apagado          |
-| [Archivos](STORAGE.md)                               | Portadas, recursos y avatares; acceso público y estado de S3                 |
+| [Archivos](STORAGE.md)                               | Portadas, recursos y avatares; local y S3/CloudFront firmado                 |
 | [Preparación de producción](PRODUCTION_READINESS.md) | Evidencia disponible, comprobaciones pendientes y bloqueos conocidos         |
 
 ## Módulos y contratos de producto

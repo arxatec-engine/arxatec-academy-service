@@ -3,6 +3,9 @@ import request from 'supertest';
 
 jest.mock('@/config/env', () => ({
   env: {
+    STORAGE_DRIVER: 'local',
+    STORAGE_LOCAL_PATH: 'storage',
+    STORAGE_PUBLIC_URL: 'http://localhost:3001/files',
     JWT_SECRET: 'secreto-de-pruebas-con-mas-de-32-caracteres',
     JWT_ISSUER: 'arxatec-academy-test',
     LOG_LEVEL: 'silent',
@@ -83,7 +86,7 @@ const COURSE: CourseDetailRecord = {
   long_description: 'Seis lecciones para entender de qué hablan cuando hablan de legal tech.',
   topic: course_topic.FIRST_STEPS,
   level: course_level.INTRODUCTORY,
-  cover_image_url: null,
+  cover_image_key: null, cover_image_url: null,
   published_at: new Date('2026-06-01T12:00:00.000Z'),
 };
 
@@ -134,7 +137,7 @@ const UNLOCKED: LessonUnlockedRecord = {
   resources: [
     {
       title: 'Tabla comparativa de las cuatro herramientas',
-      file_url: 'http://localhost:3010/files/lesson_resources/tabla.pdf',
+      file_key: null, file_url: 'http://localhost:3010/files/lesson_resources/tabla.pdf',
       mime_type: 'application/pdf',
       size_bytes: 245760,
     },

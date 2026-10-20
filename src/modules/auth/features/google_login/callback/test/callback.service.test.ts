@@ -52,7 +52,7 @@ const createdUser: AuthUserRecord = {
   is_independent: false,
   city: user_city.OTHER,
   city_other: null,
-  avatar_url: profile.avatar_url,
+  avatar_key: null, avatar_url: profile.avatar_url,
   email_verified_at: NOW,
   auth_provider: auth_provider.GOOGLE,
   created_at: NOW,

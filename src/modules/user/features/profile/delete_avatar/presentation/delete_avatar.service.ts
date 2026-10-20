@@ -1,3 +1,4 @@
+import { resolveStoredFileUrl } from '@/infrastructure/storage/file_url';
 import { toApiUser } from '@/modules/auth/shared/domain/user_mapper';
 import type { DeleteAvatarPayload } from '@/modules/user/features/profile/delete_avatar/domain/delete_avatar.payload';
 import type { DeleteAvatarResult } from '@/modules/user/features/profile/delete_avatar/domain/delete_avatar.types';
@@ -22,5 +23,5 @@ export const deleteAvatarService = async (
 
   await removeStoredAvatar(previous.avatar_key);
 
-  return { user: toApiUser(user) };
+  return { user: toApiUser(user, resolveStoredFileUrl) };
 };

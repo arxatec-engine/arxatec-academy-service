@@ -1,3 +1,4 @@
+import { resolveStoredFileUrl } from '@/infrastructure/storage/file_url';
 import { logger } from '@/config/logger';
 import { AuthTokenTtlSeconds } from '@/constants/auth';
 import { ErrorCodes } from '@/constants/error_codes';
@@ -120,7 +121,7 @@ export const registerUser = async (command: RegisterCommand): Promise<RegisterRe
   return {
     token,
     expires_at: session.expires_at.toISOString(),
-    user: toApiUser(user),
+    user: toApiUser(user, resolveStoredFileUrl),
     verification_email_sent,
   };
 };

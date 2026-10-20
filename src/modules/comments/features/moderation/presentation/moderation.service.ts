@@ -1,3 +1,4 @@
+import { resolveStoredFileUrl } from '@/infrastructure/storage/file_url';
 import type { z } from 'zod';
 
 import { logger } from '@/config/logger';
@@ -29,7 +30,7 @@ export const listModerationService = async (query: z.infer<typeof moderationQuer
       is_public: row.status === comment_status.VISIBLE
         && (row.parent === null || row.parent.status === comment_status.VISIBLE),
       author: row.user === null ? null : {
-        full_name: row.user.full_name, avatar_url: row.user.avatar_url,
+        full_name: row.user.full_name, avatar_url: resolveStoredFileUrl(row.user.avatar_url, row.user.avatar_key),
         is_team: row.user.role === user_role.ADMIN,
       },
       course: row.lesson.course,

@@ -56,8 +56,8 @@ pero no certifican las integraciones externas.
 | -------------------------------------- | ------------------------------------------------------------------------------------- |
 | Separar acciones administrativas       | Mismas rutas y DTOs, README/test por acción y fronteras aprobadas                     |
 | Consolidar tokens compartidos          | Consumo único y transacciones preservados; mocks por especificador actualizados       |
-| Implementar S3                         | Puerto completo, permisos reales, limpieza compartida y migración de URLs probados    |
-| Decidir recursos privados              | Contrato de autorización de bytes y comportamiento CDN/cache definido e implementado  |
+| Verificar S3/CloudFront real           | Puerto completo, permisos reales, limpieza compartida y migración de URLs probados    |
+| Verificar acceso CDN privado           | Firmas exigidas en CDN, 403 sin firma/alterada/vencida y renovación desde frontend    |
 | Acotar consultas crecientes            | Búsqueda y paginación coherentes, exportaciones medidas y límites acordados           |
 | Aislamiento de integración por defecto | Runner que consuma conexión de test separada con guardas, sin escribir en la habitual |
 | Definir ADMIN inicial de producción    | Procedimiento autorizado que no abra elevación pública ni use seed demo               |

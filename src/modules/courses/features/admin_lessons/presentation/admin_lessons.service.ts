@@ -6,6 +6,7 @@ import { FileUsages } from '@/constants/files';
 import { HttpStatusCodes } from '@/constants/http_status_codes';
 import { AdminLessonMessages } from '@/constants/messages/admin_lessons';
 import { lesson_status, lesson_type, video_provider } from '@/generated/enums';
+import { resolveStoredFileUrl } from '@/infrastructure/storage/file_url';
 import { storage } from '@/infrastructure/storage/storage';
 import { buildStorageKey } from '@/infrastructure/storage/storage_key';
 import { validateUpload } from '@/infrastructure/storage/validate_upload';
@@ -63,7 +64,7 @@ export const getAdminLessonService = async (id: string) => {
       article_word_count: row.article_word_count, reading_minutes: row.reading_minutes,
       transcript: row.transcript,
       resources: row.resources.map((resource) => ({
-        id: resource.id, title: resource.title, file_url: resource.file_url,
+        id: resource.id, title: resource.title, file_url: resolveStoredFileUrl(resource.file_url, resource.file_key),
         mime_type: resource.mime_type, size_bytes: resource.size_bytes,
         position: resource.position,
       })),
@@ -279,17 +280,18 @@ export const createAdminResourceService = async (lesson_id: string, title: strin
     key: buildStorageKey({ usage: validated.usage, mime_type: validated.mime_type }),
     content: file.content, mime_type: validated.mime_type,
   });
+  let row: Awaited<ReturnType<typeof createAdminResource>>;
   try {
-    const row = await createAdminResource(lesson_id, {
+    row = await createAdminResource(lesson_id, {
       title, file_url: stored.url, file_key: stored.key,
       mime_type: stored.mime_type, size_bytes: stored.size_bytes,
     });
-    return { resource: { id: row.id, title: row.title, file_url: row.file_url,
-      mime_type: row.mime_type, size_bytes: row.size_bytes, position: row.position } };
   } catch (error) {
     await storage.remove(stored.key);
     throw error;
   }
+  return { resource: { id: row.id, title: row.title, file_url: resolveStoredFileUrl(row.file_url, row.file_key),
+    mime_type: row.mime_type, size_bytes: row.size_bytes, position: row.position } };
 };
 
 const requiredResource = async (lesson_id: string, id: string) => {
@@ -302,7 +304,7 @@ export const updateAdminResourceService = async (lesson_id: string, id: string, 
   await requiredResource(lesson_id, id);
   await updateAdminResource(lesson_id, id, title);
   const row = await requiredResource(lesson_id, id);
-  return { resource: { id: row.id, title: row.title, file_url: row.file_url,
+  return { resource: { id: row.id, title: row.title, file_url: resolveStoredFileUrl(row.file_url, row.file_key),
     mime_type: row.mime_type, size_bytes: row.size_bytes, position: row.position } };
 };
 export const deleteAdminResourceService = async (lesson_id: string, id: string) => {

@@ -93,10 +93,27 @@ export const StorageDrivers = {
 
 export type StorageDriver = (typeof StorageDrivers)[keyof typeof StorageDrivers];
 
+export const S3Policy = {
+  max_attempts: 2,
+  connection_timeout_ms: 3000,
+  request_timeout_ms: 15000,
+} as const;
+
+export const CloudFrontPolicy = {
+  url_ttl_seconds: 300,
+  max_url_ttl_seconds: 86400,
+  rsa_modulus_length: 2048,
+} as const;
+
+export const StorageVisibility = {
+  public: 'public',
+  private: 'private',
+} as const;
+
 export const StorageKeyPrefix = {
-  [FileUsages.course_cover]: 'course_covers',
-  [FileUsages.lesson_resource]: 'lesson_resources',
-  [FileUsages.avatar]: 'avatars',
+  [FileUsages.course_cover]: `${StorageVisibility.public}/course_covers`,
+  [FileUsages.lesson_resource]: `${StorageVisibility.private}/lesson_resources`,
+  [FileUsages.avatar]: `${StorageVisibility.public}/avatars`,
 } as const satisfies Record<FileUsage, string>;
 
 export const MulterErrorCodes = {

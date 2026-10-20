@@ -28,7 +28,7 @@ const CREATED: CommentRecord = {
   created_at: new Date('2026-07-01T11:00:00.000Z'),
   user: {
     full_name: 'Admin Arxatec',
-    avatar_url: null,
+    avatar_url: null, avatar_key: null,
     organization: 'Arxatec',
     is_independent: false,
     role: user_role.ADMIN,

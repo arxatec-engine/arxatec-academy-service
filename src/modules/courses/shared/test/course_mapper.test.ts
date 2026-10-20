@@ -11,6 +11,8 @@ import {
 } from '@/modules/courses/shared/domain/course_mapper';
 import { summarizeLessons, toCourseTotals } from '@/modules/courses/shared/domain/course_totals';
 
+const preserveFileUrl = <T extends string | null>(url: T): T => url;
+
 const CATALOG_RECORD: CourseCatalogRecord = {
   id: 'crs_1',
   slug: 'fundamentos-de-legal-tech',
@@ -18,7 +20,7 @@ const CATALOG_RECORD: CourseCatalogRecord = {
   short_description: 'Qué es legal tech y por dónde empezar.',
   topic: course_topic.FIRST_STEPS,
   level: course_level.INTRODUCTORY,
-  cover_image_url: null,
+  cover_image_key: null, cover_image_url: null,
 };
 
 const DETAIL_RECORD: CourseDetailRecord = {
@@ -29,7 +31,7 @@ const DETAIL_RECORD: CourseDetailRecord = {
   long_description: 'Seis lecciones para entender de qué hablan.',
   topic: course_topic.FIRST_STEPS,
   level: course_level.INTRODUCTORY,
-  cover_image_url: null,
+  cover_image_key: null, cover_image_url: null,
   published_at: new Date('2026-06-01T12:00:00.000Z'),
 };
 
@@ -63,11 +65,11 @@ describe('course_mapper', () => {
       id: 'teacher-private', full_name: 'Ana Pérez', biography: 'Docente de legal tech.',
       photo_url: 'https://example.test/ana.jpg',
     };
-    const mapped = toApiCourseDetail({ ...DETAIL_RECORD, teacher }, summarizeLessons([]));
+    const mapped = toApiCourseDetail({ ...DETAIL_RECORD, teacher }, summarizeLessons([]), preserveFileUrl);
     expect(mapped.teacher).toEqual({
       full_name: teacher.full_name, biography: teacher.biography, photo_url: teacher.photo_url,
     });
-    expect(toApiCourseDetail(DETAIL_RECORD, summarizeLessons([])).teacher).toBeNull();
+    expect(toApiCourseDetail(DETAIL_RECORD, summarizeLessons([]), preserveFileUrl).teacher).toBeNull();
   });
 
   it('el curso del catálogo no lleva el id interno', () => {
@@ -78,7 +80,7 @@ describe('course_mapper', () => {
         lesson_count: 6,
         duration_seconds: 2404,
         reading_minutes: 3,
-      }),
+      }), preserveFileUrl,
     );
 
     expect(Object.keys(mapped)).not.toContain('id');
@@ -88,7 +90,7 @@ describe('course_mapper', () => {
   it('la ficha serializa published_at a ISO 8601 y tampoco lleva el id', () => {
     const mapped = toApiCourseDetail(
       DETAIL_RECORD,
-      summarizeLessons([VIDEO_LESSON, ARTICLE_LESSON]),
+      summarizeLessons([VIDEO_LESSON, ARTICLE_LESSON]), preserveFileUrl,
     );
 
     expect(mapped.published_at).toBe('2026-06-01T12:00:00.000Z');
@@ -98,7 +100,7 @@ describe('course_mapper', () => {
   it('un curso sin fecha de publicación sale con published_at nulo', () => {
     const mapped = toApiCourseDetail(
       { ...DETAIL_RECORD, published_at: null },
-      summarizeLessons([]),
+      summarizeLessons([]), preserveFileUrl,
     );
 
     expect(mapped.published_at).toBeNull();

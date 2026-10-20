@@ -26,7 +26,7 @@ const CATALOG_COURSE_SELECT = {
   short_description: true,
   topic: true,
   level: true,
-  cover_image_url: true,
+  cover_image_url: true, cover_image_key: true,
 } as const;
 
 const COURSE_DETAIL_SELECT = {
@@ -37,7 +37,7 @@ const COURSE_DETAIL_SELECT = {
   long_description: true,
   topic: true,
   level: true,
-  cover_image_url: true,
+  cover_image_url: true, cover_image_key: true,
   published_at: true,
 } as const;
 
@@ -67,7 +67,7 @@ const LESSON_LOCKED_SELECT = {
 
 const LESSON_RESOURCE_SELECT = {
   title: true,
-  file_url: true,
+  file_url: true, file_key: true,
   mime_type: true,
   size_bytes: true,
 } as const;

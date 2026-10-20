@@ -10,6 +10,7 @@ export interface CourseCatalogRecord {
   topic: course_topic;
   level: course_level;
   cover_image_url: string | null;
+  cover_image_key: string | null;
 }
 
 export interface CourseDetailRecord {
@@ -21,6 +22,7 @@ export interface CourseDetailRecord {
   topic: course_topic;
   level: course_level;
   cover_image_url: string | null;
+  cover_image_key: string | null;
   published_at: Date | null;
 }
 

@@ -1,8 +1,9 @@
 # Pruebas y verificación
 
 Academy usa Jest 30 con `@swc/jest` y Supertest. Los comandos disponibles son los de
-[package.json](../package.json); esta guía no presupone scripts `:local`, Infisical ni el runner
-nativo de Node usados por Admin. Las pruebas PostgreSQL escriben datos y requieren un entorno
+[package.json](../package.json). Las comprobaciones de código y las variantes `:local` no
+consultan Infisical; los comandos operativos usan `dev` o `prod` según [ENV](ENV.md).
+Las pruebas PostgreSQL escriben datos y requieren un entorno
 desechable propio.
 
 ## Verificaciones de una entrega
@@ -18,7 +19,7 @@ pnpm boundaries
 pnpm docs:citations
 pnpm test
 pnpm test:integration:postgres
-pnpm build
+pnpm build:local
 pnpm exec prettier --ignore-path /dev/null --check 'docs/**/*.md'
 ```
 
@@ -38,7 +39,7 @@ no se ejecutaron.
 | `docs:citations`            | Existencia y rango de referencias `archivo:línea`; no valida enlaces Markdown ni su significado |
 | `test`                      | Archivos `src/**/*.test.ts`, en serie                                                           |
 | `test:integration:postgres` | Archivos `tests/integration/postgres/**/*.test.ts`, en serie                                    |
-| `build`                     | Compilación CommonJS y reescritura de aliases; no genera Prisma ni aplica migraciones           |
+| `build:local`               | Genera Prisma, compila CommonJS, reescribe aliases y copia assets; no aplica migraciones        |
 
 ## Unitarios y tests HTTP de slice
 
@@ -93,7 +94,7 @@ export SEED_STUDENT_EMAIL='student-seed@example.test'
 export SEED_STUDENT_PASSWORD='solo-pruebas-student-2026'
 pnpm prisma:generate
 pnpm exec prisma migrate deploy
-pnpm seed
+pnpm seed:local
 pnpm test:integration:postgres
 ```
 
@@ -156,7 +157,7 @@ Requiere una base desechable migrada y sembrada, `curl`, `jq`, `rg`, Node y pnpm
 Compilar después de generar Prisma y ejecutar con la misma `DATABASE_URL` de prueba:
 
 ```sh
-pnpm build
+pnpm build:local
 SMOKE_ALLOW_MUTATION=1 VIDEO_PROVIDER_DRIVER=fake bash scripts/smoke_backend.sh
 ```
 
@@ -164,3 +165,14 @@ El puerto por defecto es 3109 (`SMOKE_PORT` lo cambia). El script usa `SEED_ADMI
 temporalmente el log para recuperar el token de verificación y limpia artefactos al salir.
 El permiso `SMOKE_ALLOW_MUTATION=1` es un freno explícito; no verifica por sí mismo la identidad
 de la base. No publicar sus logs ni usarlo como comprobación contra producción.
+
+## Semilla de exámenes
+
+La semilla completa incluye un examen de 15 preguntas para cada uno de los seis cursos de
+ejemplo. `pnpm seed:exams` incorpora solamente los exámenes faltantes de esos cursos presentes,
+sin volver a sembrar usuarios, lecciones ni comentarios. Es idempotente y conserva versiones
+y configuraciones guardadas. Ver [semilla](../src/seed/docs/README.md).
+
+`src/seed/test/seed_exams.test.ts` valida los datos y la calificación. El recorrido HTTP de
+lecciones completas, examen, certificado y PDF está en
+`tests/integration/postgres/certificates_flow.test.ts`; ejecutar contra una base desechable.

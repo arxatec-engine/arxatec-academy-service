@@ -2,6 +2,7 @@ import { ErrorCodes } from '@/constants/error_codes';
 import { HttpStatusCodes } from '@/constants/http_status_codes';
 import { AuthMessages } from '@/constants/messages/auth';
 import { auth_provider, user_city, user_role } from '@/generated/enums';
+import { storage } from '@/infrastructure/storage/storage';
 import { findSessionUser } from '@/modules/auth/features/session/get_me/data/get_me.repository';
 import { getMeService } from '@/modules/auth/features/session/get_me/presentation/get_me.service';
 import type { AuthUserRecord } from '@/modules/auth/shared/domain/auth_user.types';
@@ -22,13 +23,23 @@ const user: AuthUserRecord = {
   is_independent: false,
   city: user_city.LIMA,
   city_other: null,
-  avatar_url: null,
+  avatar_key: null, avatar_url: null,
   email_verified_at: new Date('2026-05-13T10:00:00.000Z'),
   auth_provider: auth_provider.PASSWORD,
   created_at: new Date('2026-05-12T10:00:00.000Z'),
 };
 
 describe('getMeService', () => {
+  it('renueva el avatar desde su clave sin exponerla al cliente', async () => {
+    findSessionUserMock.mockResolvedValue({ ...user,
+      avatar_url: 'https://old.test/photo.png', avatar_key: 'avatars/uuid.png' });
+    const readUrl = jest.spyOn(storage, 'readUrl').mockReturnValue('https://cdn.test/new?Signature=one');
+    const result = await getMeService({ user_id: user.id });
+    expect(readUrl).toHaveBeenCalledWith('avatars/uuid.png');
+    expect(result.user.avatar_url).toBe('https://cdn.test/new?Signature=one');
+    expect(result.user).not.toHaveProperty('avatar_key');
+  });
+
   it('consulta el usuario por el id que viene en el payload', async () => {
     findSessionUserMock.mockResolvedValue(user);
 

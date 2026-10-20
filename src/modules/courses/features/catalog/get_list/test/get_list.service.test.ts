@@ -1,3 +1,4 @@
+import { storage } from '@/infrastructure/storage/storage';
 import { course_level, course_topic } from '@/generated/enums';
 import type { GetListPayload } from '@/modules/courses/features/catalog/get_list/domain/get_list.payload';
 import { getListService } from '@/modules/courses/features/catalog/get_list/presentation/get_list.service';
@@ -38,7 +39,7 @@ const course = (
   short_description,
   topic,
   level,
-  cover_image_url: null,
+  cover_image_key: null, cover_image_url: null,
 });
 
 const CATALOG: readonly CourseCatalogRecord[] = [
@@ -102,6 +103,16 @@ beforeEach(() => {
 });
 
 describe('getListService · catálogo', () => {
+  it('firma las portadas desde su clave y conserva el contrato del catálogo', async () => {
+    findPublishedCoursesMock.mockResolvedValue([{ ...CATALOG[0],
+      cover_image_url: 'https://old.test/cover.png', cover_image_key: 'course_covers/uuid.png' }]);
+    const readUrl = jest.spyOn(storage, 'readUrl').mockReturnValue('https://cdn.test/cover?Signature=one');
+    const result = await getListService(payload());
+    expect(readUrl).toHaveBeenCalledWith('course_covers/uuid.png');
+    expect(result.courses[0]?.cover_image_url).toBe('https://cdn.test/cover?Signature=one');
+    expect(result.courses[0]).not.toHaveProperty('cover_image_key');
+  });
+
   it('devuelve el catálogo completo con sus totales agregados', async () => {
     const result = await getListService(payload());
 

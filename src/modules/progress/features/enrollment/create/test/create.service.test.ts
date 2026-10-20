@@ -40,7 +40,7 @@ const COURSE: CourseDetailRecord = {
   long_description: 'Seis lecciones para entender de qué hablan cuando hablan de legal tech.',
   topic: course_topic.FIRST_STEPS,
   level: course_level.INTRODUCTORY,
-  cover_image_url: null,
+  cover_image_key: null, cover_image_url: null,
   published_at: new Date('2026-06-01T12:00:00.000Z'),
 };
 

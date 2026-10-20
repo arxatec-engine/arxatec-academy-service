@@ -18,4 +18,4 @@ Verificación: comandos realmente ejecutados y resultado; entorno sin secretos.
 Pendientes: límites o trabajo que sigue abierto.
 ```
 
-Índice: [2026 W42](2026_W42.md).
+Índice: [2026 W42](2026_W42.md) · [2026 W43](2026_W43.md).

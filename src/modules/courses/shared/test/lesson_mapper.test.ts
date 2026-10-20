@@ -9,6 +9,8 @@ import {
   toApiLessonUnlocked,
 } from '@/modules/courses/shared/domain/lesson_mapper';
 
+const preserveFileUrl = <T extends string | null>(url: T): T => url;
+
 const LOCKED: LessonLockedRecord = {
   id: 'locked-lesson-id',
   slug: 'las-cuatro-herramientas-que-ya-usas-sin-saberlo',
@@ -31,7 +33,7 @@ const VIDEO: LessonUnlockedRecord = {
   resources: [
     {
       title: 'Tabla comparativa de las cuatro herramientas',
-      file_url: 'http://localhost:3001/files/lesson_resources/tabla.pdf',
+      file_key: null, file_url: 'http://localhost:3001/files/lesson_resources/tabla.pdf',
       mime_type: 'application/pdf',
       size_bytes: 245760,
     },
@@ -83,7 +85,7 @@ describe('toApiLessonLocked · la forma bloqueada', () => {
 
 describe('toApiLessonUnlocked · la forma abierta', () => {
   it('un video viaja como referencia, no como archivo, y con su transcripción (E6)', () => {
-    const lesson = toApiLessonUnlocked(VIDEO);
+    const lesson = toApiLessonUnlocked(VIDEO, preserveFileUrl);
 
     expect(lesson.video).toEqual({ provider: video_provider.VIMEO, external_id: '901000003' });
     expect(lesson.transcript).toBe('Hola, en esta lección vemos las cuatro herramientas.');
@@ -92,7 +94,7 @@ describe('toApiLessonUnlocked · la forma abierta', () => {
   });
 
   it('un artículo trae cuerpo y minutos de lectura, y video en null', () => {
-    const lesson = toApiLessonUnlocked(ARTICLE);
+    const lesson = toApiLessonUnlocked(ARTICLE, preserveFileUrl);
 
     expect(lesson.video).toBeNull();
     expect(lesson.article_body).toBe(
@@ -106,18 +108,18 @@ describe('toApiLessonUnlocked · la forma abierta', () => {
     const lesson = toApiLessonUnlocked({
       ...VIDEO,
       resources: [
-        { title: 'Primero', file_url: 'a', mime_type: 'application/pdf', size_bytes: 1 },
-        { title: 'Segundo', file_url: 'b', mime_type: 'application/pdf', size_bytes: 2 },
+        { title: 'Primero', file_key: null, file_url: 'a', mime_type: 'application/pdf', size_bytes: 1 },
+        { title: 'Segundo', file_key: null, file_url: 'b', mime_type: 'application/pdf', size_bytes: 2 },
       ],
-    });
+    }, preserveFileUrl);
 
     expect(lesson.resources.map((resource) => resource.title)).toEqual(['Primero', 'Segundo']);
   });
 
   it('expone el id de la lección para progreso y comentarios, pero no ids de recursos', () => {
-    const serialized = JSON.stringify(toApiLessonUnlocked(VIDEO));
+    const serialized = JSON.stringify(toApiLessonUnlocked(VIDEO, preserveFileUrl));
 
-    expect(toApiLessonUnlocked(VIDEO).id).toBe(VIDEO.id);
+    expect(toApiLessonUnlocked(VIDEO, preserveFileUrl).id).toBe(VIDEO.id);
     expect(serialized).not.toContain('"lesson_id"');
     expect(serialized).not.toContain('lesson_id');
     expect(serialized).not.toContain('course_id');

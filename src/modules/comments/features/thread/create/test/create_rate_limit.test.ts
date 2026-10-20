@@ -2,6 +2,9 @@ import request from 'supertest';
 
 jest.mock('@/config/env', () => ({
   env: {
+    STORAGE_DRIVER: 'local',
+    STORAGE_LOCAL_PATH: 'storage',
+    STORAGE_PUBLIC_URL: 'http://localhost:3001/files',
     JWT_SECRET: 'secreto-de-pruebas-con-mas-de-32-caracteres',
     JWT_ISSUER: 'arxatec-academy-test',
     LOG_LEVEL: 'silent',

@@ -9,7 +9,8 @@ Este documento describe el esquema del árbol de trabajo, no el estado aplicado 
 [prisma.config.ts](../../../prisma.config.ts) selecciona `prisma/schema`,
 `prisma/migrations` y el seed. [_base.prisma](../../../prisma/schema/_base.prisma) genera
 el cliente en `src/generated` con formato CommonJS. `pnpm prisma:generate` prepara ese cliente;
-`pnpm build` no lo genera. Prisma CLI, cliente y adaptador son dependencias del mismo servicio.
+`pnpm build:local` y los builds con Infisical lo generan antes de compilar.
+Prisma CLI, cliente y adaptador son dependencias del mismo servicio.
 
 La conexión viene de `DATABASE_URL`. Aplicación e integración usan el mismo módulo de cliente;
 el aislamiento de tests debe establecerse antes de importarlo. No hay segundo cliente lector,

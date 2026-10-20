@@ -1,3 +1,4 @@
+import { resolveStoredFileUrl } from '@/infrastructure/storage/file_url';
 import { ErrorCodes } from '@/constants/error_codes';
 import { HttpStatusCodes } from '@/constants/http_status_codes';
 import { AuthMessages } from '@/constants/messages/auth';
@@ -72,6 +73,6 @@ export const loginService = async ({
       issued_at: now,
     }),
     expires_at: session.expires_at.toISOString(),
-    user: toApiUser(user),
+    user: toApiUser(user, resolveStoredFileUrl),
   };
 };

@@ -15,7 +15,7 @@ const AUTH_USER_SELECT = {
   is_independent: true,
   city: true,
   city_other: true,
-  avatar_url: true,
+  avatar_url: true, avatar_key: true,
   email_verified_at: true,
   auth_provider: true,
   created_at: true,

@@ -1,3 +1,4 @@
+import { resolveStoredFileUrl } from '@/infrastructure/storage/file_url';
 import { buildCourseFacets } from '@/modules/courses/features/catalog/get_list/domain/catalog_facets';
 import { filterCoursesBySearch } from '@/modules/courses/features/catalog/get_list/domain/course_search';
 import type { GetListPayload } from '@/modules/courses/features/catalog/get_list/domain/get_list.payload';
@@ -28,7 +29,7 @@ export const getListService = async (payload: GetListPayload): Promise<GetListRe
 
   return {
     courses: filterCoursesBySearch(courses, payload.search).map((course) =>
-      toApiCatalogCourse(course, toCourseTotals(aggregate_by_course.get(course.id))),
+      toApiCatalogCourse(course, toCourseTotals(aggregate_by_course.get(course.id)), resolveStoredFileUrl),
     ),
     facets: buildCourseFacets({ topic_counts, level_counts }),
   };

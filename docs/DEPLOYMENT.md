@@ -2,11 +2,16 @@
 
 El artefacto de Academy es `dist/server.js` con sus módulos compilados y dependencias de runtime.
 Requiere Node.js >=22.12, pnpm según `packageManager` y PostgreSQL con las migraciones de este
-servicio. El repositorio no incorpora un despliegue Infisical ni comandos `build:prod` de Admin.
+servicio. Los comandos operativos cargan las variables con Infisical CLI, siguiendo el patrón
+de Admin y el proyecto indicado en `.infisical.json`.
 
 ## Configuración del entorno
 
-Inyectar configuración del backend según [ENV](ENV.md). Dotenv puede cargar un `.env` local sin
+Instalar Infisical CLI y configurar su autenticación con acceso al proyecto del servicio.
+En el equipo local se usa `infisical login`; el despliegue debe proporcionar autenticación
+no interactiva para su entorno. Agregar las variables del backend en la raíz `/` de `prod`
+según [ENV](ENV.md). `dev` usa las variables del entorno `dev` para desarrollo.
+Dotenv puede cargar un `.env` local sin
 reemplazar valores inyectados. No desplegar credenciales de seed ni copiar el `.env` de otra
 aplicación. Mantener configuración del servidor, supervisor de procesos, certificados y secretos
 en el entorno operativo correspondiente.
@@ -19,29 +24,35 @@ Como mínimo se necesitan `DATABASE_URL`, `JWT_SECRET`, `FRONTEND_URL`, `GOOGLE_
 producción. `EMAIL_FROM` debe usar el buzón autenticado o un alias autorizado.
 
 Con `STORAGE_DRIVER=local`, preparar un volumen persistente escribible y la URL pública correcta.
-S3 sigue pendiente de implementación y no es una alternativa operativa de despliegue.
+Con `STORAGE_DRIVER=s3`, completar bucket/región, dominio HTTPS de CloudFront y su clave de firma.
+El bucket debe ser privado con OAC y la distribución exigir URLs firmadas. Migrar los bytes
+con sus claves antes de cambiar el driver; comprobar permisos y enlaces reales según [STORAGE](STORAGE.md).
 Coordinar backups de PostgreSQL y archivos; restaurar solo uno puede dejar referencias rotas.
 
 ## Compilación y migraciones
 
-En un directorio de release limpio y con la configuración de destino inyectada:
+En un directorio de release limpio y con acceso CLI al entorno `prod`:
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm prisma:generate
-pnpm build
-pnpm exec prisma migrate deploy
+pnpm build:prod
+pnpm prisma:deploy
 pnpm start
 ```
 
-`build` ejecuta TypeScript, `tsc-alias` y copia las fuentes de los certificados a
-`dist/infrastructure/certificates/assets`. No genera el cliente, no limpia `dist` y no aplica migraciones.
-Generar Prisma antes de compilar y usar un directorio limpio evita conservar JavaScript de
-archivos retirados. Conservar el lockfile y las herramientas de desarrollo durante el build.
+`build` es un alias de `build:prod`; `build:dev` usa `dev`. Ambos cargan Infisical antes de
+ejecutar `build:local`, que genera Prisma, compila TypeScript, reescribe aliases con `tsc-alias`
+y copia las fuentes de certificados a `dist/infrastructure/certificates/assets`.
+El build no limpia `dist` ni aplica migraciones. Usar un directorio limpio evita conservar
+JavaScript de archivos retirados. Conservar el lockfile y las herramientas de desarrollo durante
+el build. `start` inyecta las variables de `prod` al proceso compilado.
+
+Las variantes `build:local`, `start:local`, `prisma:migrate:local` y `prisma:deploy:local`
+permiten usar un entorno ya inyectado por la infraestructura o un `.env` local.
 
 El esquema se lee de `prisma/schema`; las migraciones viven en `prisma/migrations`. El comando
-`pnpm prisma:migrate` usa `migrate dev` y pertenece al desarrollo. Para un despliegue, aplicar
-migraciones versionadas con `migrate deploy`, después de revisar cambios y respaldo. La semilla
+`pnpm prisma:migrate` carga `dev` y usa `migrate dev`. Para un despliegue, `pnpm prisma:deploy`
+carga `prod` y aplica migraciones versionadas con `migrate deploy`, después de revisar cambios y respaldo. La semilla
 no es un paso de producción y aborta con `NODE_ENV=production`.
 
 ## Proxy, origen y archivos
@@ -56,8 +67,7 @@ permitir multipart de hasta 20 MiB más su envoltorio para recursos. JSON y urle
 el límite de 1 MiB de Express.
 
 Con driver local, `/files` sirve archivos públicos sin Bearer. Verificar que `STORAGE_PUBLIC_URL`
-sea alcanzable desde el navegador y se conserve al reemplazar una release. Las URLs persistidas
-no cambian automáticamente si cambia el host. Detalles en [STORAGE](STORAGE.md).
+sea alcanzable desde el navegador y se conserve al reemplazar una release. Las filas con clave resuelven URLs desde la base vigente; las filas sin clave conservan su URL. Detalles en [STORAGE](STORAGE.md).
 
 ## Verificación tras iniciar
 

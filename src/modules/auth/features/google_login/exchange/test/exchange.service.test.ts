@@ -53,7 +53,7 @@ const googleUser: AuthUserRecord = {
   is_independent: false,
   city: user_city.OTHER,
   city_other: null,
-  avatar_url: 'https://lh3.googleusercontent.com/a/foto',
+  avatar_key: null, avatar_url: 'https://lh3.googleusercontent.com/a/foto',
   email_verified_at: NOW,
   auth_provider: auth_provider.GOOGLE,
   created_at: new Date('2026-05-12T10:00:00.000Z'),
