@@ -24,6 +24,9 @@ El orden de lecciones y recursos exige una lista completa de ids. Borrar una lec
 se rechaza; si hay progreso o comentarios, una lección borrador exige confirmación explícita.
 Los archivos de recursos tienen clave privada y solo se retiran cuando no quedan referencias
 (un curso duplicado puede compartirlos).
+La transacción registra los archivos desprendidos mediante triggers de PostgreSQL, también
+al borrar una lección en cascada. La limpieza intenta borrar de S3 o local inmediatamente;
+si falla, el worker de almacenamiento reintenta desde una cola persistente tras reinicios.
 
 La integración PostgreSQL está en `tests/integration/postgres/admin_lessons_flow.test.ts`; el
 smoke con `curl` prueba ARTICLE, VIDEO, probe, reordenación y subida de PDF.

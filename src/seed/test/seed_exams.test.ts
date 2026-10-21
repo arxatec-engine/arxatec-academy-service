@@ -19,9 +19,23 @@ describe('exámenes de semilla', () => {
         ExamPolicy.question_count,
       );
       expect(new Set(exam.questions.map((question) => question.correct_option)).size).toBe(
-        ExamPolicy.option_count,
+        exam.course_slug === 'automatiza-tus-escritos' ? 1 : ExamPolicy.option_count,
       );
     }
+  });
+
+  it('permite aprobar Automatiza tus escritos respondiendo A en las 15 preguntas', () => {
+    const exam = buildSeedExams().find((item) => item.course_slug === 'automatiza-tus-escritos');
+    expect(exam).toBeDefined();
+    if (!exam) {
+      throw new Error('Missing automation seed exam');
+    }
+
+    const answers = Array<number>(ExamPolicy.question_count).fill(0);
+    expect(gradeExam(exam.questions, answers, exam.passing_score)).toEqual({
+      score: 15,
+      passed: true,
+    });
   });
 
   it('las respuestas de la semilla aprueban y las incorrectas no conceden certificado', () => {

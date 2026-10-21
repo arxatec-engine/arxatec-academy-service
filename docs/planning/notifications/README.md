@@ -1,83 +1,54 @@
-# Avisos y pedidos de tema
+# Notifications and topic requests
 
-**Estado:** implementado. [Módulo](../../../src/modules/notifications/docs/README.md) ·
-[Schemas](../../../src/modules/notifications/shared/domain/notification.schema.ts) · [Índice](../README.md).
-El módulo registra interés y permite administrarlo; no entrega campañas masivas.
+**Status:** implemented. [Module](../../../src/modules/notifications/docs/README.md) · [Schemas](../../../src/modules/notifications/shared/domain/notification.schema.ts) · [Index](../README.md).
 
-## Altas públicas y correo efectivo
+The module records interest and supports administration; it does not deliver bulk campaigns.
 
-| Ruta bajo `/api/v1`           | Entrada                                | Resultado                                    |
-| ----------------------------- | -------------------------------------- | -------------------------------------------- |
-| `POST /notifications/signups` | email si anónimo; course_slug opcional | 200 sin data, también al repetir             |
-| `POST /notifications/topics`  | email si anónimo; search_term          | 200 sin data; repetición incrementa contador |
+## Public signups and effective email
 
-Con Bearer válido se usa el correo de la sesión y se descarta el email del body antes de
-validarlo. Un token inválido equivale a anónimo: debe proporcionar email. No se exige correo
-verificado. El correo explícito usa normalización/validación común.
+| Route under /api/v1         | Input                             | Result                                      |
+| --------------------------- | --------------------------------- | ------------------------------------------- |
+| POST /notifications/signups | Guest email; optional course_slug | 200 without data, including repeats.        |
+| POST /notifications/topics  | Guest email; search_term          | 200 without data; repeats increment counts. |
 
-Omitir course_slug registra aviso de catálogo general; si se envía, debe identificar un curso
-publicado o devuelve 404. No registra avisos para un borrador aunque el cliente conozca su slug.
-search_term rechaza controles ASCII, compacta espacios, exige 1–120 caracteres y genera una versión
-normalizada sin mayúsculas/acentos para agrupar.
+Valid Bearer uses session email and discards body email before validation. Invalid tokens mean anonymous access requiring email. Verified email is not required. Explicit email uses shared normalization/validation.
 
-Las dos acciones comparten límites de 10/h por IP y 5/h por correo. El correo efectivo de la
-sesión se usa también en el limitador. La persistencia guarda SHA-256 de sal + IP, no IP en
-claro, con NOTIFICATIONS_IP_HASH_SALT. Esa regla pertenece a estas tablas, no a las sesiones auth.
+Omitting course_slug registers general-catalog interest; supplied slugs must identify published courses or return 404. Known draft slugs cannot receive course signups. search_term rejects ASCII controls, compacts spaces, requires 1–120 characters, and generates a case/accent-normalized grouping value.
 
-## Unicidad, repetición y datos
+Actions share 10/hour/IP and 5/hour/email limits; session email is also used for limiting. Persistence stores SHA-256 of salt + IP through NOTIFICATIONS_IP_HASH_SALT, not clear IP. This applies to these tables, not authentication sessions.
 
-`notification_signups` deduplica email/curso. El caso de catálogo general exige el índice único
-parcial de la migración para course_id NULL. La inserción usa conflicto ignorado y, si llega
-una sesión con un aviso anónimo previo, puede asociarlo al usuario en la misma transacción.
-No borra notified_at ni crea una nueva suscripción por repetir el alta.
+## Uniqueness, repetition, and data
 
-`topic_requests` tiene una fila por email/término normalizado. Repetir incrementa request_count
-y actualiza last_requested_at; no representa una persona nueva. El agregado por tema suma
-peticiones y cuenta correos distintos por separado, sin devolver las direcciones en ese DTO.
+notification_signups deduplicates email/course. General-catalog rows require the migration's partial unique index for null course_id. Inserts ignore conflicts; authenticated signups may link a prior anonymous row to the user in the same transaction. Repetition neither clears notified_at nor creates another subscription.
 
-## Gestión administrativa
+topic_requests has one row per email/normalized term. Repeating increments request_count and last_requested_at, not the number of people. Topic aggregates sum requests and count distinct emails separately without exposing addresses in that DTO.
 
-Todo `/admin/notifications` exige sesión y ADMIN.
+## Administration
 
-| Método/ruta                                | Entrada                                  | Resultado                    |
-| ------------------------------------------ | ---------------------------------------- | ---------------------------- |
-| `GET /admin/notifications/signups`         | course_id, notified, page, per_page      | signups y pagination         |
-| `GET /admin/notifications/signups/export`  | course_id, notified                      | CSV completo del filtro      |
-| `POST /admin/notifications/signups/notify` | course_id nullable, signed_up_before ISO | `{ marked }`                 |
-| `GET /admin/notifications/topics`          | Sin filtros declarados                   | topics agrupados por demanda |
-| `DELETE /admin/notifications/subscribers`  | Query email                              | 204, o 404 si no hay filas   |
+All /admin/notifications routes require sessions and ADMIN.
 
-Listado: page desde 1; per_page 25 por defecto, máximo 100; notified usa texto true/false.
-Pagination contiene page/per_page/total/has_next. Cada alta devuelve id, email, course nullable
-(id/title/slug), created_at, notified_at nullable y has_account. Este último se consulta por
-email en usuarios actuales; no significa que el alta estuviera autenticada cuando ocurrió.
+| Method/route                             | Input                                    | Result                    |
+| ---------------------------------------- | ---------------------------------------- | ------------------------- |
+| GET /admin/notifications/signups         | course_id, notified, page, per_page      | signups/pagination.       |
+| GET /admin/notifications/signups/export  | course_id, notified                      | Complete filtered CSV.    |
+| POST /admin/notifications/signups/notify | Nullable course_id, ISO signed_up_before | marked.                   |
+| GET /admin/notifications/topics          | No declared filters                      | Topics grouped by demand. |
+| DELETE /admin/notifications/subscribers  | Query email                              | 204 or 404 when absent.   |
 
-Omitir course_id en listado/exportación incluye todos los cursos y catálogo; no hay un selector
-especial para «solo catálogo». En el comando de marcado, course_id null sí selecciona catálogo.
-signed_up_before es obligatorio y no futuro; se marcan filas no avisadas con created_at menor
-o igual al corte. Repetir ese corte devuelve cero para filas ya marcadas.
+List pages start at 1; per_page defaults 25, max 100; notified uses text true/false. Pagination contains page/per_page/total/has_next. Rows expose id, email, nullable course (id/title/slug), created_at, nullable notified_at, and has_account. The latter matches current users by email; it does not prove authenticated signup at creation.
 
-## CSV, marcado y privacidad
+Omitting course_id from list/export includes every course and general catalog; there is no general-only list selector. In the marking command, null course_id does select general catalog. signed_up_before is required and nonfuture; unnotified rows at/before the cutoff are marked. Repeating a cutoff yields zero for already-marked rows.
 
-Exportación devuelve email, curso/catálogo y fechas de registro/aviso, con offset de reporte,
-BOM y protección de fórmulas. Su límite es 20/h por actor. No aplica ADMIN_EXPORT_MAX_ROWS:
-el repositorio carga todo el conjunto y lo convierte en buffer.
+## CSV, marking, and privacy
 
-El marcado solo escribe notified_at. No llama SMTP ni comprueba que se haya entregado un correo.
-La UI debe presentarlo como registro de una gestión, no como evidencia de entrega. Un futuro
-envío masivo requiere política de consentimiento, reintentos, bajas y contrato propio.
+Export contains email, course/catalog, signup/notification dates under the reporting offset, BOM, and formula protection. Limit: 20/hour/actor. ADMIN_EXPORT_MAX_ROWS does not apply; the repository reads the complete set into a buffer.
 
-Eliminar por email borra avisos y pedidos de tema en una transacción; no borra la cuenta.
-Borrar la cuenta retira filas asociadas por user_id, pero un aviso anónimo con ese correo y
-sin vínculo puede permanecer. No presentar la cascada como búsqueda universal por dirección.
+Marking writes only notified_at. It neither invokes SMTP nor proves delivery. UI should present administrative recording rather than delivered-email evidence. Future bulk delivery requires consent, retry, unsubscribe policy, and its own contract.
 
-## Aceptación y evolución
+Deleting by email removes signups/topic requests transactionally, not the account. Account deletion removes user_id-linked rows, but an unlinked anonymous signup with the same email may remain. Cascades are not a universal email-address search.
 
-[notifications_flow](../../../tests/integration/postgres/notifications_flow.test.ts) comprueba
-deduplicación, agrupación, CSV, corte y borrado. Verificar además que body email no suplante una
-sesión, que el catálogo general conserve una sola fila y que request_count y distinct_emails
-se interpreten como métricas diferentes.
+## Acceptance and evolution
 
-El listado de temas agrupa filas completas en Node y no pagina. Antes de crecer, medir y mover
-la agrupación a SQL o añadir un contrato acotado. Separar acciones en slices, implementar envío
-y conservar auditoría general son trabajos futuros, no funcionalidades ya presentes.
+[notifications_flow](../../../tests/integration/postgres/notifications_flow.test.ts) covers deduplication, grouping, CSV, cutoff, and deletion. Also verify body email cannot impersonate sessions, general catalog retains one signup, and request_count/distinct_emails remain distinct metrics.
+
+Topic listing groups complete rows in Node and is unpaginated. Measure growth before moving grouping into SQL or adding a bounded contract. Per-action slices, delivery, and general audit history remain future work.

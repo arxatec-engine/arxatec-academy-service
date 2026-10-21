@@ -1,40 +1,46 @@
-# Almacenamiento: alcance y evolución
+# Storage scope and evolution
 
-**Estado:** local y S3/CloudFront con `/public/` y `/private/` implementados. Pendiente configurar
-los demás entornos y migrar archivos existentes. Desarrollo se verificó el 2026-10-19; ver [STORAGE](../../STORAGE.md). [Contrato](../../STORAGE.md) · [Índice](../README.md).
+**Status:** local storage and S3/CloudFront with `/public/` and `/private/` are implemented.
+Other environments and existing-file migration still require validation. Development was
+verified on 2026-10-19; see [STORAGE](../../STORAGE.md). [Index](../README.md).
 
-## Propiedad y flujo
+## Ownership and flow
 
-| Uso     | Metadatos PostgreSQL                                         | Quién escribe             |
-| ------- | ------------------------------------------------------------ | ------------------------- |
-| Avatar  | users.avatar_url y avatar_key                                | Cuenta autenticada propia |
-| Portada | courses.cover_image_url y cover_image_key                    | ADMIN                     |
-| Recurso | lesson_resources: URL, clave, MIME, bytes, título y posición | ADMIN                     |
+| Usage    | PostgreSQL metadata                                     | Writer              |
+| -------- | ------------------------------------------------------- | ------------------- |
+| Avatar   | users.avatar_url and avatar_key                         | Authenticated owner |
+| Cover    | courses.cover_image_url and cover_image_key             | ADMIN               |
+| Resource | lesson_resources URL, key, MIME, bytes, title, position | ADMIN               |
 
-Autenticar/autorizar antes de multipart; validar tamaño, MIME y firma binaria; escribir bytes;
-persistir URL canónica y clave. Al responder, generar `readUrl` desde la clave. Las respuestas
-S3 llevan firmas temporales, nunca se persisten como referencia definitiva.
-No hay presigned uploads, reservas ni estados de confirmación: la API sigue recibiendo los bytes.
+Authenticate and authorize before multipart handling, validate size/MIME/binary signature, save
+the bytes, and persist the canonical URL and key. Resolve `readUrl` from the key when responding.
+Public S3 keys use unsigned CDN URLs; private and legacy non-public keys use temporary signatures.
+Never persist a signed read URL as the permanent reference. The API still receives upload bytes;
+there are no presigned uploads, reservations, or confirmation-state endpoints.
 
-## Consistencia y migración
+## Consistency and migration
 
-Cursos duplicados pueden compartir `file_key`; borrar recursos/lecciones consulta referencias.
-Base y almacenamiento no forman una transacción distribuida. Los services intentan compensar
-fallos de persistencia y limpiar sustituciones; una limpieza fallida puede dejar objetos huérfanos.
-No deducir claves arbitrarias desde URLs legacy ni eliminar objetos con un listado parcial.
+Duplicated courses can share `file_key`. Cleanup checks references across resources, covers,
+and avatars before deleting bytes. PostgreSQL triggers enqueue replaced or removed keys in
+`storage_deletions` within the owning transaction, including cascades. A worker retries failed
+deletions, and services attempt immediate cleanup and compensation after failed persistence.
+Database and storage remain separate systems: a database outage during compensation or existing
+untracked orphans can still require reconciliation. Never infer arbitrary keys from legacy URLs
+or delete objects based on a partial listing.
 
-Antes de activar S3, copiar los bytes locales manteniendo claves y revisar filas con clave nula.
-El resolver usa el dominio vigente para las filas con clave, sin reescribir su URL persistida.
-La semilla no sube bytes; sus URLs no acreditan existencia.
+Before switching from local storage to S3, copy bytes while preserving keys and review rows with
+null keys. The resolver uses the current domain for keyed records without rewriting their stored
+URL. Seed URLs do not upload or prove the existence of any bytes.
 
-## Aceptación operativa pendiente
+## Operational acceptance
 
-- Configurar región/bucket, rol IAM o credenciales, dominio HTTPS y PEM/ID de clave pública.
-- Mantener bucket privado con OAC y exigir firmas en todos los comportamientos CDN pertinentes.
-- Probar subida, descarga, MIME, sustitución, borrado y referencias compartidas con fixtures.
-- Verificar 403 sin firma, firma alterada y enlace vencido, incluidos objetos cacheados.
-- Comprobar CORS desde el frontend y renovación de enlaces al caducar; la API usa no-store.
-- Medir memoria bajo subidas concurrentes: Multer mantiene buffers completos.
+- Configure region/bucket, IAM role or credentials, HTTPS domain, and signing PEM/public-key ID.
+- Keep S3 private with OAC and require signatures on the relevant private CDN behaviors.
+- Test upload, download, MIME, replacement, deletion, retries, and shared references with fixtures.
+- Verify rejection of missing/tampered/expired signatures, including cached objects.
+- Check frontend CORS needs and link renewal on expiry; the API uses no-store.
+- Measure concurrent upload memory: Multer keeps complete buffers.
 
-Los tests herméticos validan comandos y firma criptográfica; no acreditan permisos ni despliegue.
-El driver local conserva `/files` público y necesita volumen y backup coordinados con la base.
+Hermetic tests validate commands and cryptographic signatures, not deployed permissions.
+The local driver exposes `/files` publicly and needs a persistent volume with backups coordinated
+with the database. Development AWS evidence does not certify production configuration.

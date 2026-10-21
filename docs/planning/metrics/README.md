@@ -1,84 +1,85 @@
-# Definiciones de métricas y cobertura
+# Metric definitions and coverage
 
-**Estado:** definiciones derivadas de los mappers y consultas actuales. [Índice](../README.md) ·
-[Contratos](../http_contracts/README.md). No existe un módulo general de analítica de Academy.
+**Status:** definitions derived from current queries and mappers. [Index](../README.md) ·
+[Contracts](../http_contracts/README.md). Academy has no general analytics module.
 
-## Qué cuenta cada cifra
+## What each number counts
 
-| Métrica                                | Definición actual                                                                 | Límites de interpretación                              |
-| -------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| lesson_count público                   | Lecciones PUBLISHED del curso                                                     | No incluye borradores                                  |
-| total_duration_seconds                 | SUM de segundos de VIDEO y minutos de ARTICLE × 60 publicados                     | Estimación de contenido, no tiempo estudiado           |
-| video_count/article_count              | Cantidad publicada por tipo en ficha                                              | No representa reproducciones/lecturas                  |
-| Faceta topic                           | Cursos publicados aplicando nivel, sin tema ni search                             | No coincide necesariamente con longitud de la búsqueda |
-| Faceta level                           | Cursos publicados aplicando tema, sin nivel ni search                             | Contador de alternativas de filtro                     |
-| Faceta topic.ALL                       | Suma de temas con filtro de nivel                                                 | No es número de temas ni total tras search             |
-| counts de cursos admin                 | Total y estados de todas las filas de courses                                     | No se limita al catálogo público                       |
-| completed_lessons                      | Intersección de lecciones publicadas con progreso completado del usuario          | Despublicar cambia el denominador y el conteo visible  |
-| Curso al día                           | Al menos una lección publicada y todas completadas                                | Añadir una lección puede retirar esta condición        |
-| Mis cursos completed                   | Inscripción con completed_at y curso al día, actualmente publicado                | No equivale a cualquier cierre histórico               |
-| completed_courses en perfil/directorio | Inscripciones con completed_at no nulo                                            | No recalcula temario ni filtra curso archivado         |
-| total_registered                       | COUNT de usuarios retenidos                                                       | Incluye roles; no cuenta cuentas ya borradas           |
-| registered_this_week                   | Usuarios creados desde lunes de reporte                                           | Global, no se limita a filtros del directorio          |
-| reported de moderación                 | Comentarios VISIBLE con reporte no revisado                                       | Cuenta comentarios, no suma reportes                   |
-| pending de moderación                  | Unión de reported y raíces visibles de autor no ADMIN sin respuesta visible ADMIN | Incluye reported; no sumar ambos contadores            |
-| request_count por tema                 | Suma de veces solicitado para término normalizado                                 | Un mismo correo puede contribuir varias veces          |
-| distinct_emails por tema               | Correos diferentes de las filas agrupadas                                         | No son necesariamente cuentas verificadas              |
-| marked de avisos                       | Filas antes del corte que pasan de no avisadas a marcadas                         | No mide entrega de correo                              |
-| has_account de aviso                   | Email coincide con usuario actual                                                 | No prueba sesión/identidad al suscribirse              |
+| Metric                              | Current definition                                                                     | Interpretation limits                                         |
+| ----------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Public lesson_count                 | PUBLISHED lessons in the course                                                        | Excludes drafts                                               |
+| total_duration_seconds              | Published VIDEO seconds plus ARTICLE reading minutes × 60                              | Content estimate, not study time                              |
+| video_count/article_count           | Published lessons of each type in course details                                       | Does not measure views or reads                               |
+| Topic facet                         | Published courses with the level filter, excluding topic and search filters            | May differ from the search result count                       |
+| Level facet                         | Published courses with the topic filter, excluding level and search filters            | Counts available filter alternatives                          |
+| topic.ALL facet                     | Sum of topic counts with the level filter                                              | Neither a topic count nor the total after search              |
+| Administrative course counts        | All course rows grouped by state                                                       | Not limited to the public catalog                             |
+| completed_lessons                   | Intersection of published lessons and the user's completed progress                    | Unpublishing changes the visible count and denominator        |
+| Up-to-date course                   | At least one published lesson, all completed                                           | Adding a lesson can remove this condition                     |
+| My courses completed                | Enrollment with completed_at, an up-to-date syllabus, and a currently published course | Not every historical completion                               |
+| Profile/directory completed_courses | Enrollments with non-null completed_at                                                 | Does not recalculate the syllabus or exclude archived courses |
+| total_registered                    | Retained user rows                                                                     | Includes all roles; excludes deleted accounts                 |
+| registered_this_week                | Users created since the reporting week's Monday                                        | Global, independent of directory filters                      |
+| Moderation reported                 | VISIBLE comments with an unreviewed report                                             | Counts comments, not individual reports                       |
+| Moderation pending                  | Union of reported comments and visible non-ADMIN roots without a visible ADMIN reply   | Includes reported; do not add the two counts                  |
+| Topic request_count                 | Sum of requests for a normalized term                                                  | One email address can contribute repeatedly                   |
+| Topic distinct_emails               | Different email addresses in the grouped rows                                          | Not necessarily verified accounts                             |
+| Notification marked                 | Previously unmarked rows before the cutoff that become marked                          | Does not measure email delivery                               |
+| Notification has_account            | Email matches a current user                                                           | Does not prove identity or authentication when subscribing    |
+| Exam score and passed               | Correct answers and pass decision computed by the server for a submitted exam version  | An attempt result, not a measure of time studied              |
 
-## Fechas, estados y cambios del contenido
+## Dates, states, and content changes
 
-Fechas de API se serializan ISO UTC. Reportes usan REPORTING_UTC_OFFSET_MINUTES, -300 por
-defecto. registered_from empieza al inicio del día de reporte y registered_to incluye el día
-completo mediante una cota exclusiva del siguiente. La semana empieza lunes, no últimos siete
-días móviles. El offset es fijo; no representa una zona con reglas de horario de verano.
+API dates use ISO UTC serialization. Reports use REPORTING_UTC_OFFSET_MINUTES, which defaults
+to -300. registered_from starts at the beginning of the reporting day; registered_to includes
+the whole day through an exclusive next-day boundary. Weeks start on Monday rather than
+covering a rolling seven days. The fixed offset does not model daylight-saving rules.
 
-`published_at` de curso es la primera publicación y bloquea slug; no se renueva al publicar de
-nuevo. `enrollments.completed_at` conserva el cierre al añadir contenido, pero se limpia si el
-usuario desmarca explícitamente una lección. No es un historial inmutable de certificaciones.
+A course's `published_at` records its first publication and locks its slug; republishing does
+not reset it. `enrollments.completed_at` survives added content but is cleared when the user
+explicitly unmarks a lesson. It is not an immutable certificate history.
 
-`last_position_seconds` guarda el máximo declarado y no prueba segundos efectivos consumidos.
-created_at de cuenta no representa primera visita y last_used_at de sesión puede actualizarse
-con retraso de cinco minutos o no renovarse en rutas de auth opcional. No describirlo como
-presencia en línea.
+`last_position_seconds` stores the highest declared position, not proven seconds watched.
+Account created_at is not the first visit. Session last_used_at can lag by five minutes or
+remain unchanged on optional-auth routes. It must not be described as online presence.
 
-## Ejemplos que evitan interpretaciones erróneas
+## Examples that prevent misinterpretation
 
-Un alumno completó cuatro lecciones y su inscripción tiene fecha de cierre. Al publicar una
-quinta, Mis cursos lo mueve a in_progress con 4/5; el resumen y directorio aún pueden contar
-un curso cerrado. Completar la quinta recupera el estado actual manteniendo la fecha anterior.
-Desmarcar una lección, en cambio, limpia esa fecha.
+A student completes four lessons and receives an enrollment completion date. Publishing a
+fifth moves the course to in_progress in My courses with 4/5 lessons; the summary and directory
+can still count one historical completion. Completing the fifth restores the current completed
+state while keeping the earlier date. Unmarking a lesson clears that date instead.
 
-Un comentario puede tener tres reportes abiertos: reported suma uno. Si además no tiene
-respuesta del equipo, pending sigue sumando uno, no dos. La condición de equipo usa rol actual:
-revocar ADMIN puede cambiar is_answered sin borrar la respuesta.
+A comment with three open reports contributes one to reported. If it also lacks a team reply,
+it still contributes one to pending. Team membership uses the current role: revoking ADMIN
+can change is_answered without deleting the reply.
 
-Tres solicitudes de «IA aplicada» del mismo correo suman request_count=3 y distinct_emails=1.
-Marcar un aviso con fecha de corte incrementa marked aunque ningún correo haya salido del
-servidor. Esos nombres deben conservar su significado en la interfaz.
+Three requests for the same normalized topic from one email contribute request_count=3 and
+distinct_emails=1. Marking notifications before a cutoff increases marked even if no email
+has left the server. These names must keep the same meaning in the interface.
 
-## Precisión y consistencia
+## Precision and consistency
 
-Los conteos y bytes admitidos usan números enteros JSON; el tamaño máximo de un archivo está
-acotado a 20 MiB. No hay dinero, créditos, BigInt de cuota ni conversión multimoneda en estas
-respuestas. Artículos calculan minutos con Math.round(words/200), mínimo uno para no vacío.
+Counts and supported byte sizes use JSON integers; files are limited to 20 MiB. These responses
+contain no money, credits, BigInt quotas, or currency conversions. Article reading time uses
+Math.round(words/200), with a minimum of one minute for nonempty content.
 
-Los datos opcionales siguen nullable; no sustituir una fecha desconocida por ahora. Listado,
-conteo y estadísticas pueden ejecutarse en consultas distintas sin snapshot global; no prometer
-que una pantalla completa representa una única transacción. El `timestamp` del sobre es el
-momento de construir la respuesta, no una marca asOf de todos los registros.
+Optional data remains nullable; never replace an unknown date with the current time. Lists,
+counts, and statistics can use separate queries without a shared snapshot. Do not promise
+that an entire screen represents one database transaction. The response envelope's `timestamp`
+is its construction time, not a common asOf timestamp for every record.
 
-## Información aún no disponible
+## Information not yet available
 
-No hay cobertura para DAU/WAU/MAU, retención, embudos, reproducción por intervalos, duración
-efectiva de estudio, certificados, calificaciones o presencia. Tampoco CPU/RAM/uptime salen
-de estas tablas. El estado de cuenta, la sesión válida o una posición guardada no permiten
-inventar esas métricas. Se requieren eventos, definiciones y retención antes de dibujarlas.
+There is no DAU/WAU/MAU, retention, funnel, playback-interval, effective study-duration, or
+presence analytics. CPU, RAM, and uptime also do not come from these tables. Exam attempts
+and certificates have their own persisted records, but they do not establish these broader
+analytics. Account state, a valid session, or a saved position cannot supply missing metrics;
+event definitions and retention rules are needed first.
 
-## Verificación
+## Verification
 
-Fixtures deben incluir curso sin publicadas, nueva lección tras cerrar, archivado con progreso,
-desmarcado, autor con rol cambiado, reportes repetidos y fechas alrededor de medianoche Lima.
-Comparar con resultados conocidos pequeños, sin descargar bases reales para verificarlos.
-Los tests existentes y su preparación están en [TESTING](../../TESTING.md).
+Fixtures should cover a course with no published lessons, a new lesson after completion,
+archived content with progress, unmarking, changed author roles, repeated reports, and dates
+around midnight in Lima. Compare against small fixtures with known results rather than
+copying production databases. Existing tests and setup are in [TESTING](../../TESTING.md).

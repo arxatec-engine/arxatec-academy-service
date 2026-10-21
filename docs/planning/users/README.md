@@ -1,91 +1,56 @@
-# Usuarios: perfil, cuenta y directorio administrativo
+# Users: profile, account, and administrative directory
 
-**Estado:** implementado. [Perfil y cuenta](../../../src/modules/user/docs/README.md) ·
-[Directorio](../../../src/modules/user/features/directory/docs/README.md) ·
-[CSV](../../../src/modules/user/features/directory_export/docs/README.md) · [Índice](../README.md).
+**Status:** implemented. [Profile/account](../../../src/modules/user/docs/README.md) · [Directory](../../../src/modules/user/features/directory/docs/README.md) · [CSV](../../../src/modules/user/features/directory_export/docs/README.md) · [Index](../README.md).
 
-## Cuenta del alumno
+## Student account
 
-Las rutas `/me` requieren sesión activa y operan exclusivamente sobre el usuario autenticado.
-El controller no acepta otra identidad desde query/body. La lectura actual se hace mediante
-`GET /auth/me`; no existe un `GET /me/profile` registrado. El DTO de perfil reutiliza el usuario
-público de auth y excluye credenciales y claves de almacenamiento.
+/me routes require active sessions and operate only on the authenticated user. Controllers do not accept another identity through query/body. Current reads use GET /auth/me; GET /me/profile is not registered. Profile DTOs reuse the public auth user, excluding credentials/storage keys.
 
-| Ruta bajo `/api/v1`  | Entrada                           | Resultado                                |
-| -------------------- | --------------------------------- | ---------------------------------------- |
-| `PATCH /me/profile`  | full_name, city y perfil opcional | 200 con user                             |
-| `PATCH /me/password` | current_password y new_password   | 200 con revoked_sessions                 |
-| `PUT /me/avatar`     | Multipart file                    | 200 con user                             |
-| `DELETE /me/avatar`  | —                                 | 200 con user y avatar null               |
-| `GET /me/summary`    | —                                 | 200 con member_since y completed_courses |
-| `DELETE /me`         | password si tiene hash            | 204, sin body                            |
+| Route under /api/v1 | Input                          | Result                              |
+| ------------------- | ------------------------------ | ----------------------------------- |
+| PATCH /me/profile   | full_name only                 | 200 user.                           |
+| PATCH /me/password  | current_password, new_password | 200 revoked_sessions.               |
+| PUT /me/avatar      | Multipart file                 | 200 user.                           |
+| DELETE /me/avatar   | —                              | 200 user with null avatar.          |
+| GET /me/summary     | —                              | 200 member_since/completed_courses. |
+| DELETE /me          | Password when a hash exists    | 204 without body.                   |
 
-PATCH de perfil no es un merge de todos los campos: full_name y city siguen siendo requeridos.
-Nombre 2–120; organización hasta 160; city LIMA/AREQUIPA/TRUJILLO/OTHER y texto other hasta 80
-obligatorio con OTHER. is_independent tiene default false y la normalización de campos se hace
-en el dominio. Correo, rol y verificación no se editan por esta ruta.
+Profile PATCH is not an arbitrary merge: it accepts full_name, trimmed, 2–120 characters. Organization, independent status, and city can exist on accounts but are not editable through this current endpoint; unknown body fields are ignored. Email, role, and verification cannot be edited here.
 
-Cambio de contraseña requiere contraseña actual y nueva distinta de 8–128 caracteres. Escribe
-hash y revoca las otras sesiones en una transacción, conservando la actual. Una cuenta Google
-sin hash devuelve 409 ACCOUNT_USES_GOOGLE; contraseña actual incorrecta, 401 INVALID_CREDENTIALS.
-El fallo del correo de aviso no revierte el cambio.
+Password changes require current password and a different new password of 8–128 characters. A transaction writes the hash and revokes other sessions, retaining the current one. Google accounts without hashes return 409 ACCOUNT_USES_GOOGLE; wrong current password returns 401 INVALID_CREDENTIALS. Notification-email failure does not undo the change.
 
-Avatar acepta JPEG/PNG hasta 2 MiB, con comprobación de firma. Subir reemplaza la referencia y
-limpia el anterior; quitar es repetible mientras el usuario exista. La limpieza fallida se
-registra sin deshacer la actualización que ya se completó.
+Avatars accept signature-checked JPEG/PNG up to 2 MiB. Upload replaces the reference and cleans the prior file; removal is repeatable while the user exists. Failed cleanup remains durably queued without undoing committed updates. A failed database write after upload also attempts cleanup of the new object.
 
-## Baja y conservación
+## Account deletion and retention
 
-Con hash persistido, DELETE exige comprobar password; una cuenta sin hash no la necesita.
-La transacción borra progreso, comentarios propios, reportes propios y artefactos de auth, y
-después usuario. Las cascadas retiran avisos/temas vinculados. Al borrar una raíz propia pueden
-desaparecer respuestas ajenas por la relación padre. El avatar se intenta retirar después.
+With a persisted hash, DELETE verifies password; accounts without hashes do not require one. One transaction deletes progress, owned comments/reports, auth artifacts, then the user. Cascades remove linked notifications/topics and certificates. Deleting owned roots can cascade other authors' replies. The avatar is queued transactionally and deletion is attempted afterward.
 
-La FK SetNull del autor no significa que el endpoint preserve comentarios: hay una limpieza
-explícita anterior al borrado del usuario. Una eliminación directa de base tiene otra semántica.
-No ofrecer baja como operación reversible ni como mera desactivación del perfil.
+The author's SetNull FK does not imply HTTP retention: explicit comment cleanup precedes user deletion. Direct database deletion has different comment semantics. Account deletion is neither reversible nor simple profile deactivation.
 
-## Directorio administrativo y filtros
+## Administrative directory and filters
 
-`GET /admin/users` exige ADMIN y devuelve `data: { users, stats }` y `meta.pagination`.
-Cada fila incluye id, nombre, correo, organización, independencia, ciudad, fechas de creación/
-verificación y completed_courses. No incluye hash, sesiones, tokens, IP ni claves de avatar.
+GET /admin/users requires ADMIN and returns data.users/data.stats with meta.pagination. Rows include ID, name, email, organization, independent status, city, creation/verification dates, and completed_courses, excluding hashes, sessions, tokens, IPs, and avatar keys.
 
-| Parámetro                                       | Contrato                                                                 |
+| Parameter                                       | Contract                                                                 |
 | ----------------------------------------------- | ------------------------------------------------------------------------ |
-| search                                          | Trim, máximo 120; nombre/correo/organización sin acentos ni mayúsculas   |
-| city                                            | Varios enums, repetidos o por coma                                       |
-| registered_from / registered_to                 | Fechas YYYY-MM-DD; desde inclusive y hasta inclusive como día de reporte |
-| is_independent / email_verified / has_completed | Texto literal true/false                                                 |
-| completed_topic                                 | Varios temas; inscripción con fecha de cierre en alguno de ellos         |
-| sort                                            | created_at (desc por defecto) o full_name (asc), con id de desempate     |
-| page / per_page                                 | Desde 1; 25 por defecto y máximo 100                                     |
+| search                                          | Trimmed, max 120; case/accent-insensitive name/email/organization.       |
+| city                                            | Multiple enums, repeated or comma-separated.                             |
+| registered_from / registered_to                 | YYYY-MM-DD; inclusive reporting days.                                    |
+| is_independent / email_verified / has_completed | Literal text true/false.                                                 |
+| completed_topic                                 | Multiple topics; enrollment closure date in any selected topic.          |
+| sort                                            | created_at descending by default or full_name ascending; ID tie-breaker. |
+| page / per_page                                 | Start at 1; default 25, max 100.                                         |
 
-Los filtros de cierre usan `enrollments.completed_at IS NOT NULL`, no recalculan el temario
-actual. `has_completed` y `completed_topic` se combinan con AND. Stats devuelve
-total_registered, registered_this_week y week_start globales, independientemente de los filtros.
-La semana empieza lunes según `REPORTING_UTC_OFFSET_MINUTES`, -300 por defecto.
+Completion filters use enrollments.completed_at IS NOT NULL, not current syllabus recalculation. has_completed and completed_topic combine with AND. Stats include global total_registered, registered_this_week, and week_start, independent of filters. Weeks start Monday under REPORTING_UTC_OFFSET_MINUTES, default -300.
 
-## CSV y consultas
+## CSV and queries
 
-`GET /admin/users/export` comparte filtros, omite paginación y ordena como el directorio. Exporta
-nombre, correo, afiliación, ciudad, fecha de registro y cursos terminados, con fechas del reporte.
-Devuelve CSV UTF-8 con BOM, Content-Disposition y Cache-Control no-store. Celdas con prefijos
-de fórmula se neutralizan mediante la utilidad CSV.
+GET /admin/users/export shares filters, omits pagination, and retains directory order. It exports name, email, affiliation, city, registration date, and completed courses using reporting dates. Returns UTF-8 CSV with BOM, Content-Disposition, and Cache-Control no-store. Formula-prefix cells are neutralized by the CSV utility.
 
-El límite es 5 exportaciones/h por ADMIN. Más de ADMIN_EXPORT_MAX_ROWS devuelve
-422 EXPORT_TOO_LARGE con row_count/max_rows; no ofrece una descarga truncada silenciosa.
-El archivo se construye en memoria, no mediante streaming. La búsqueda también materializa
-candidatos de usuarios; [rendimiento](../../PERFORMANCE.md) identifica su coste.
+Limit: five exports/hour/ADMIN. Exceeding ADMIN_EXPORT_MAX_ROWS returns 422 EXPORT_TOO_LARGE with row_count/max_rows, not a silently truncated file. CSV is buffered, not streamed. Search also materializes user candidates; [performance](../../PERFORMANCE.md) explains cost.
 
-## Aceptación y límites
+## Acceptance and boundaries
 
-[account_flow](../../../tests/integration/postgres/account_flow.test.ts) verifica los comandos
-personales y [admin_users_flow](../../../tests/integration/postgres/admin_users_flow.test.ts)
-directorio/exportación. Comprobar denegación a otro actor, ausencia de secretos, límite de filas,
-fecha de reporte y persistencia de revocación. El resumen personal cuenta cierres persistidos,
-por lo que puede diferir de cursos al día; no representa presencia ni tiempo estudiado.
+[account_flow](../../../tests/integration/postgres/account_flow.test.ts) verifies personal commands; [admin_users_flow](../../../tests/integration/postgres/admin_users_flow.test.ts) verifies directory/export. Check identity isolation, excluded secrets, row limits, reporting dates, and persisted revocation. Personal summaries count retained closures and can differ from currently up-to-date courses; they do not measure presence or study time.
 
-No existen en este directorio edición ajena, cambio de rol por API, suspensión, revocación
-administrativa de sesiones ni acceso a otras bases. Añadir esos comandos exige definir permiso,
-trazabilidad y contrato; un botón de frontend no es autorización.
+The directory does not support editing other users, role changes, suspension, administrative session revocation, or other databases. Such commands need permissions, traceability, and contracts; frontend buttons do not authorize them.

@@ -6,6 +6,10 @@ type QuestionDraft = readonly [
   wrong3: string,
 ];
 
+export const seedExamFixedCorrectOptions: Readonly<Record<string, number>> = {
+  'automatiza-tus-escritos': 0,
+};
+
 export const seedExamQuestions: Readonly<Record<string, readonly QuestionDraft[]>> = {
   'fundamentos-de-legal-tech': [
     [

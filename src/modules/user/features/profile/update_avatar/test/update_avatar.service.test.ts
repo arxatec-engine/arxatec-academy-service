@@ -2,6 +2,7 @@ import { ErrorCodes } from '@/constants/error_codes';
 import { FileMaxSizeBytes, FileUsages, MimeTypes, StorageKeyPrefix } from '@/constants/files';
 import { HttpStatusCodes } from '@/constants/http_status_codes';
 import { storage } from '@/infrastructure/storage/storage';
+import { removeStoredFile } from '@/infrastructure/storage/cleanup';
 import { updateAvatarService } from '@/modules/user/features/profile/update_avatar/presentation/update_avatar.service';
 import { findUserAvatar, setUserAvatar } from '@/modules/user/shared/data/user_account.repository';
 import { userRecord } from '@/modules/user/shared/test/user_fixtures';
@@ -18,11 +19,12 @@ jest.mock('@/infrastructure/storage/storage', () => ({
 jest.mock('@/config/logger', () => ({
   logger: { warn: jest.fn(), info: jest.fn(), error: jest.fn() },
 }));
+jest.mock('@/infrastructure/storage/cleanup', () => ({ removeStoredFile: jest.fn() }));
 
 const findAvatarMock = jest.mocked(findUserAvatar);
 const setAvatarMock = jest.mocked(setUserAvatar);
 const saveMock = jest.spyOn(storage, 'save');
-const removeMock = jest.spyOn(storage, 'remove');
+const removeMock = jest.mocked(removeStoredFile);
 const readUrlMock = jest.spyOn(storage, 'readUrl');
 
 const PNG = Buffer.concat([
@@ -99,6 +101,13 @@ describe('updateAvatarService', () => {
     await updateAvatarService(command());
 
     expect(removeMock).not.toHaveBeenCalled();
+  });
+
+  it('limpia la subida nueva si no se puede guardar su referencia', async () => {
+    setAvatarMock.mockRejectedValueOnce(new Error('database failed'));
+    await expect(updateAvatarService(command())).rejects.toThrow('database failed');
+    expect(removeMock).toHaveBeenCalledWith('avatars/nueva.png');
+    expect(removeMock).not.toHaveBeenCalledWith('avatars/vieja.png');
   });
 
   it('si el borrado de la anterior falla, la peticion sigue siendo un exito', async () => {

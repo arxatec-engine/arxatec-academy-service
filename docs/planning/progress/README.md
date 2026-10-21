@@ -1,82 +1,51 @@
-# Inscripciones y progreso de aprendizaje
+# Enrollment and learning progress
 
-**Estado:** implementado. [Módulo](../../../src/modules/progress/docs/README.md) ·
-[Reglas compartidas](../../../src/modules/progress/shared/docs/README.md) · [Índice](../README.md).
-Todos los comandos de progreso requieren sesión, sin exigir correo verificado.
+**Status:** implemented. [Module](../../../src/modules/progress/docs/README.md) · [Shared rules](../../../src/modules/progress/shared/docs/README.md) · [Index](../README.md).
 
-## Datos y contrato
+Progress commands require sessions, not verified email.
 
-`enrollments` tiene una fila por usuario/curso y conserva started_at, completed_at y última
-lección. `lesson_progress` tiene una fila por usuario/lección con posición y completed_at.
-Las rutas reciben el usuario desde la sesión; no permiten elegir a otro alumno en el body.
+## Data and contract
 
-| Método/ruta bajo `/api/v1`            | Entrada                                         | `data` de éxito                                        |
-| ------------------------------------- | ----------------------------------------------- | ------------------------------------------------------ |
-| `POST /courses/:slug/enroll`          | Sin campos requeridos de body                   | `{ enrollment }`, 200 incluso al repetir               |
-| `PUT /lessons/:lesson_id/progress`    | last_position_seconds, completed opcional false | `{ progress }`                                         |
-| `POST /lessons/:lesson_id/complete`   | Sin body requerido                              | `{ mark: { lesson_id, completed_at, enrollment } }`    |
-| `DELETE /lessons/:lesson_id/complete` | Sin body requerido                              | `{ mark }` con completed_at null y enrollment nullable |
-| `GET /me/courses`                     | Sin filtros declarados                          | `{ in_progress, completed }`                           |
+enrollments has one row per user/course with started_at, completed_at, and last lesson. lesson_progress has one row per user/lesson with position/completed_at. Session identity determines the user; bodies cannot choose another student.
 
-Posición debe ser entero 0–86400. `completed` es booleano; no se convierte desde un string.
-Los ids de lección tienen tope 64 en estas acciones. Guardar posición devuelve lesson_id,
-last_position_seconds, completed_at nullable y updated_at. El endpoint tiene límite 1/s por
-usuario; no aplicarlo como una cuota independiente por lección.
+| Method/route under /api/v1          | Input                                           | Successful data                                      |
+| ----------------------------------- | ----------------------------------------------- | ---------------------------------------------------- |
+| POST /courses/:slug/enroll          | No required body fields                         | enrollment, 200 even when repeated.                  |
+| PUT /lessons/:lesson_id/progress    | last_position_seconds, optional completed=false | progress.                                            |
+| POST /lessons/:lesson_id/complete   | No required body                                | mark: lesson_id, completed_at, enrollment.           |
+| DELETE /lessons/:lesson_id/complete | No required body                                | mark with null completed_at and nullable enrollment. |
+| GET /me/courses                     | No declared filters                             | in_progress/completed.                               |
 
-Enrollment publica referencia de curso por slug/título, fechas de inicio/cierre, contadores
-de lecciones y next_lesson nullable por slug/título. No devuelve id interno de inscripción ni
-de curso. Los enlaces del alumno siguen usando slugs.
+Position must be integer 0–86400. completed is a JSON boolean, not coerced from text. Lesson IDs max 64. Saving returns lesson_id, last_position_seconds, nullable completed_at, and updated_at. The endpoint limit is one/second/user, not a separate quota per lesson.
 
-## Acceso y disponibilidad
+Enrollment exposes course slug/title, start/closure dates, lesson counts, nullable next_lesson slug/title, and nullable certificate_id. It does not expose internal enrollment/course IDs. Student links continue to use slugs.
 
-Inscribirse busca curso publicado por slug; inexistente/borrador/archivado da 404. Marcar por
-id distingue lección inexistente (404) de una lección o curso ya no publicados (403 LESSON_LOCKED).
-La sesión válida permite ver la lección, sin una inscripción previa obligatoria.
+## Access and availability
 
-«Mis cursos» se construye desde inscripciones y solo muestra cursos publicados. Los archivados
-conservan datos en PostgreSQL pero desaparecen de esa proyección. No confundir visibilidad actual
-con eliminación del aprendizaje.
+Enrollment finds published courses by slug; missing/draft/archived courses return 404. Marking by ID distinguishes missing lessons (404) from no-longer-published lessons/courses (403 LESSON_LOCKED). Active sessions can read lessons without prior enrollment.
 
-## Escritura concurrente y posición
+My courses derives from enrollments and includes published courses only. Archived courses retain database learning data while disappearing from that projection. Current visibility is distinct from data deletion.
 
-Guardar usa tres pasos: `createMany(skipDuplicates)`, `updateMany` si la posición almacenada es
-menor, y lectura del estado resultante. La unicidad usuario/lección evita dobles filas y la
-guarda evita retrocesos por eventos de red fuera de orden. No sustituirlo por un upsert que
-sobrescriba siempre la posición ni por un `select → if → insert` en Node.
+## Concurrent position writes
 
-`completed: true` invoca el mismo marcado que el comando de completar después de guardar.
-Guardar solo una posición no declara por sí mismo el curso terminado. La inscripción explícita
-es idempotente y completar también puede crearla si faltaba.
+Saving uses createMany(skipDuplicates), conditional updateMany when stored position is lower, then reads the resulting state. Unique user/lesson rows prevent duplicates, and the guard prevents regressions from out-of-order events. Do not replace this with unconditional upsert or a Node select/if/insert race.
 
-## Finalización y cambio de temario
+completed true invokes the same completion command after saving. Position alone does not complete a course. Explicit enrollment is idempotent; completion may create enrollment when absent.
 
-El cálculo actual es `published_lesson_count > 0 && completed_lesson_count >= published_lesson_count`.
-Los contadores visibles intersectan completadas con publicadas; una retirada no infla el
-avance. next_lesson es la primera publicada sin completar, no necesariamente la contigua a la
-última vista.
+## Completion and syllabus changes
 
-Completar inserta/marca progreso, asegura inscripción, actualiza última lección y cuenta las
-completadas de la lista publicada recibida por la transacción. Esa lista se obtiene antes de
-abrirla; no se promete un snapshot compartido con una publicación editorial concurrente.
-La primera fecha de cierre se sella solo
-si estaba null. Repetir marcado no reemplaza esa fecha.
+Current completion is `published_lesson_count > 0 && completed_lesson_count >= published_lesson_count`. Visible counts intersect completed and published lessons; unpublishing does not inflate progress. next_lesson is the first uncompleted published lesson, not necessarily adjacent to the last viewed lesson.
 
-Si se publica una lección nueva, el curso puede volver a in_progress sin borrar su fecha
-anterior; al ponerse al día, esa fecha se conserva. En cambio, desmarcar explícitamente una
-lección sí pone a null completed_at de progreso e inscripción, conservando la posición. La
-próxima finalización podrá tener una fecha nueva. Esos dos casos no deben documentarse igual.
+Completion inserts/marks progress, ensures enrollment, updates the last lesson, and counts against the published list supplied to the transaction. That list is read before opening the transaction; there is no promised snapshot shared with concurrent editorial publication. The first closure date is set only while null; repeated marking does not replace it.
 
-## Métricas, pruebas y evolución
+New publication may return courses to in_progress without clearing earlier closure dates; catching up retains that date. Explicit unmarking instead clears progress/enrollment completed_at while preserving position, allowing a later closure date. These cases have different semantics.
 
-`GET /me/summary` y directorio cuentan inscripciones con fecha de cierre persistida, sin
-recalcular si están al día. [Métricas](../metrics/README.md) explica por qué puede diferir de
-`GET /me/courses`. No atribuir duración vista exacta a la posición máxima: no es un historial
-de reproducción ni registra cada intervalo consumido.
+## Exams, certificates, metrics, and evolution
 
-[progress_flow](../../../tests/integration/postgres/progress_flow.test.ts) prueba guardados
-simultáneos, unicidad, máximo, nuevas lecciones y desmarcado contra PostgreSQL. Los unitarios
-prueban reglas, mappers y controllers. La suite depende del curso sembrado y modifica estados;
-requiere base desechable según [TESTING](../../TESTING.md).
+Completing all published lessons unlocks a versioned 15-question exam. Server grading records attempt snapshots and issues a certificate on passing; the initial configurable threshold is 12 correct answers. Existing certificates retain their issued data and public links. Completing lessons alone does not issue new certificates. See [API](../../API.md) and [exams](../../../src/modules/progress/features/exams/docs/README.md).
 
-No existen certificados, intentos de examen, notas ni analítica de retención. Añadirlos requiere
-un modelo y contrato nuevos; no deducirlos de completed_at o last_position_seconds.
+GET /me/summary and directory count enrollments with retained closure dates without recalculating current syllabus completion. [Metrics](../metrics/README.md) explains differences from GET /me/courses. Maximum position is not exact watched time or a playback-interval history.
+
+[progress_flow](../../../tests/integration/postgres/progress_flow.test.ts) verifies concurrent saves, uniqueness, maxima, new lessons, and unmarking with PostgreSQL. Unit tests cover rules, mappers, and controllers. The suite mutates seeded content/state and requires disposable data as described in [TESTING](../../TESTING.md).
+
+Retention analytics, exact study-time measurement, and presence remain unimplemented. Existing certificates and exam scores are domain records, not a general analytics module.

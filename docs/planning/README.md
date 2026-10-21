@@ -1,69 +1,56 @@
-# Alcance y planificación de Academy Service
+# Academy Service scope and planning
 
-**Estado:** los seis módulos de negocio tienen implementación y rutas registradas. Este espacio
-retiene las reglas, fuentes, contratos y criterios de aceptación, con pendientes explícitos.
-«Implementado» describe el árbol de código inspeccionado; [producción](../PRODUCTION_READINESS.md)
-y [entrega](delivery/README.md) distinguen la evidencia de ejecución y el trabajo operativo.
+**Status:** all six business modules have implementations and registered routes. This space retains rules, sources, contracts, acceptance criteria, and explicit follow-up. “Implemented” describes inspected code; [production readiness](../PRODUCTION_READINESS.md) and [delivery](delivery/README.md) distinguish execution evidence from operational work.
 
-Academy conserva su PostgreSQL para identidad, sesiones, catálogo, aprendizaje, comunidad y avisos.
-El panel editorial es parte de este servicio y utiliza usuarios ADMIN de Academy. No consume
-la cookie de Admin ni consulta una base Lawyer para estas pantallas.
+Academy owns PostgreSQL identity, sessions, catalog, learning, community, and notifications. Its editorial panel uses Academy ADMIN users. It neither consumes Admin's cookie nor queries a Lawyer database for these screens.
 
-## Áreas implementadas
+## Implemented areas
 
-| Área de código                      | Superficie principal bajo `/api/v1`                                    | Alcance documentado                                                 |
-| ----------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `auth`                              | `/auth`                                                                | [Registro, sesión, verificación, reset y Google](auth/README.md)    |
-| `courses/catalog`                   | `/courses`                                                             | [Catálogo, facetas, ficha y edición de cursos](courses/README.md)   |
-| `courses/lessons` y `admin_lessons` | `/courses/:course_slug/lessons/:lesson_slug`, `/admin/lessons`         | [Acceso, artículos, videos y recursos](lessons/README.md)           |
-| `progress`                          | `/courses/:slug/enroll`, `/lessons/:lesson_id/progress`, `/me/courses` | [Inscripción, avance y finalización](progress/README.md)            |
-| `comments`                          | `/lessons/:lesson_id/comments`, `/comments`, `/admin/comments`         | [Hilos, reportes y moderación](comments/README.md)                  |
-| `user`                              | `/me`, `/admin/users`                                                  | [Perfil, cuenta, resumen y directorio/exportación](users/README.md) |
-| `notifications`                     | `/notifications`, `/admin/notifications`                               | [Avisos y demanda de temas](notifications/README.md)                |
+| Code area                             | Main surface under `/api/v1`                                           | Documented scope                                                                |
+| ------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `auth`                                | `/auth`                                                                | [Registration, sessions, verification, reset, and Google](auth/README.md)       |
+| `courses/catalog`                     | `/courses`                                                             | [Catalog, facets, course details, and editing](courses/README.md)               |
+| `courses/lessons` and `admin_lessons` | `/courses/:course_slug/lessons/:lesson_slug`, `/admin/lessons`         | [Access, articles, videos, and resources](lessons/README.md)                    |
+| `progress`                            | `/courses/:slug/enroll`, `/lessons/:lesson_id/progress`, `/me/courses` | [Enrollment, progress, completion, exams, and certificates](progress/README.md) |
+| `comments`                            | `/lessons/:lesson_id/comments`, `/comments`, `/admin/comments`         | [Threads, reports, and moderation](comments/README.md)                          |
+| `user`                                | `/me`, `/admin/users`                                                  | [Profile, account, summary, directory, and export](users/README.md)             |
+| `notifications`                       | `/notifications`, `/admin/notifications`                               | [Notifications and topic demand](notifications/README.md)                       |
 
-Cada área enlaza schemas y repositorios reales. Las rutas editoriales de cursos y lecciones
-viven dentro de `courses`; no son un séptimo servicio ni requieren otro actor de Admin.
+Each area links actual schemas/repositories. Course/lesson editorial routes belong to `courses`, not a seventh service or another Admin actor.
 
-## Contratos transversales
+## Cross-cutting contracts
 
-- [Datos y migraciones](data_model/README.md): relaciones, unicidad, cascadas y clientes.
-- [Contratos HTTP](http_contracts/README.md): convenciones, paginaciones, ejemplos y errores.
-- [Métricas](metrics/README.md): totales, fechas, estado actual y cobertura.
-- [Permisos y trazabilidad](permissions_audit/README.md): identidad real, campos permitidos y límites.
-- [Archivos](storage/README.md): local, S3/CloudFront firmado, limpieza y validación operativa.
-- [Reutilización de endpoints](endpoint_reuse/README.md): qué comparten alumno, catálogo y panel.
-- [Entrega y verificación](delivery/README.md): dependencias, fixtures y cierre de pendientes.
+- [Data and migrations](data_model/README.md): relations, uniqueness, cascades, and clients.
+- [HTTP contracts](http_contracts/README.md): conventions, pagination, examples, and errors.
+- [Metrics](metrics/README.md): totals, dates, current state, and coverage.
+- [Permissions and traceability](permissions_audit/README.md): real identity, allowed fields, and limits.
+- [Files](storage/README.md): local storage, signed S3/CloudFront, cleanup, and operational validation.
+- [Endpoint reuse](endpoint_reuse/README.md): what students, catalog, and editorial tools share.
+- [Delivery and verification](delivery/README.md): dependencies, fixtures, and completion criteria.
 
-## Fuentes de persistencia
+## Persistence sources
 
-| Schema                                                    | Datos propios de Academy                            |
-| --------------------------------------------------------- | --------------------------------------------------- |
-| [users](../../prisma/schema/users.prisma)                 | Perfil, rol, credencial, verificación y avatar      |
-| [auth](../../prisma/schema/auth.prisma)                   | Sesiones, tokens de un solo uso y cuentas OAuth     |
-| [courses](../../prisma/schema/courses.prisma)             | Cursos, lecciones y metadatos de recursos           |
-| [progress](../../prisma/schema/progress.prisma)           | Inscripciones y progreso por lección                |
-| [comments](../../prisma/schema/comments.prisma)           | Hilos, reportes y actores de moderación             |
-| [notifications](../../prisma/schema/notifications.prisma) | Avisos y pedidos de tema                            |
-| [enums](../../prisma/schema/enums.prisma)                 | Vocabulario de roles, ciudades, contenido y estados |
+| Schema                                                    | Academy-owned data                                    |
+| --------------------------------------------------------- | ----------------------------------------------------- |
+| [users](../../prisma/schema/users.prisma)                 | Profile, role, credentials, verification, and avatar. |
+| [auth](../../prisma/schema/auth.prisma)                   | Sessions, single-use tokens, and OAuth accounts.      |
+| [courses](../../prisma/schema/courses.prisma)             | Courses, lessons, and resource metadata.              |
+| [progress](../../prisma/schema/progress.prisma)           | Enrollments, lesson progress, and certificates.       |
+| [exams](../../prisma/schema/exams.prisma)                 | Versioned exams and attempt snapshots.                |
+| [teachers](../../prisma/schema/teachers.prisma)           | Reusable teacher profiles.                            |
+| [storage](../../prisma/schema/storage.prisma)             | Persisted file-deletion jobs.                         |
+| [comments](../../prisma/schema/comments.prisma)           | Threads, reports, and moderation actors.              |
+| [notifications](../../prisma/schema/notifications.prisma) | Signups and topic requests.                           |
+| [enums](../../prisma/schema/enums.prisma)                 | Roles, cities, content, and states.                   |
 
-El inventario muestra qué se puede consultar, no cuántas personas usan la aplicación ni el estado
-de una base remota. Un campo disponible en Prisma no forma parte automáticamente de la API.
+This inventory describes queryable data, not active-user counts or remote database state. A Prisma field is not automatically part of the API.
 
-## Organización y recursos
+## Organization and resources
 
-Aplicar [arquitectura](../ARCHITECTURE.md) y [estilo](../CODE_STYLING.md): controller para HTTP,
-service para reglas, repository para persistencia y `shared` como superficie entre módulos.
-Las features administrativas agrupadas conservan deuda de separación por acción.
+Apply [architecture](../ARCHITECTURE.md) and [style](../CODE_STYLING.md): controllers own HTTP, services own rules, repositories own persistence, and `shared` is the inter-module surface. Grouped administrative features retain per-action separation debt.
 
-No añadir módulos de workspaces, facturación, IA o métricas de Lawyer por copiar el índice de
-Admin. Sus objetivos se reemplazan aquí por aprendizaje y edición. También cambian las
-decisiones de recursos: Academy aún no configura un pool ni una cola Argon2 acotados.
-Las búsquedas y exportaciones que materializan datos se identifican en
-[rendimiento](../PERFORMANCE.md), sin atribuirles optimizaciones que no existen.
+Do not add workspaces, billing, AI, or Lawyer metrics merely by copying Admin's index. Academy focuses on learning and editing. Resource decisions differ too: there is no bounded pool or application-owned Argon2 queue. [Performance](../PERFORMANCE.md) identifies materializing searches/exports without attributing nonexistent optimizations.
 
-## Pendientes fuera del alcance implementado
+## Follow-up beyond implemented scope
 
-S3, descargas privadas, correo masivo, capacidades granulares, auditoría general, recibos de
-comandos y métricas de retención/presencia no tienen un contrato operativo implementado. Cada
-incorporación requiere datos, permisos, pruebas y coordinación con el frontend. No se deben
-presentar como funcionalidades disponibles por aparecer en una hoja de ruta.
+Production S3/CloudFront validation remains an operational task even though signed private delivery and durable cleanup are implemented and development-tested. Bulk email, granular capabilities, general auditing, command receipts, and retention/presence metrics have no implemented operational contract. Additions require data, permissions, tests, and frontend coordination; roadmap entries alone are not available features.

@@ -1,66 +1,40 @@
-# Rendimiento y memoria
+# Performance and memory
 
-Academy ejecuta Express en un proceso y comparte un cliente Prisma con adaptador `pg`. No inicia
-workers, cachés distribuidas ni polling. Esta guía describe límites visibles en el código;
-no hay un benchmark de Academy que permita prometer latencia, RSS o capacidad concurrente.
+Academy runs Express in one process and shares one Prisma client with the `pg` adapter. It has no distributed caches or external job infrastructure. Its in-process storage cleanup worker polls a persisted queue every 30 seconds. This guide describes code-visible limits; there is no Academy benchmark establishing latency, RSS, or concurrent capacity.
 
-## Presupuesto real de recursos
+## Actual resource budget
 
-| Recurso            | Implementación                                   | Implicación                                                                                   |
-| ------------------ | ------------------------------------------------ | --------------------------------------------------------------------------------------------- |
-| PostgreSQL         | Un `PrismaPg` con `connectionString`             | No hay `max`, timeout de consulta ni cola de admisión configurados por la aplicación          |
-| Contraseñas        | Argon2id con opciones por defecto de la librería | No hay una cola acotada propia ni un límite global de trabajo criptográfico                   |
-| Sesión obligatoria | Consulta de sesión/usuario por petición          | Permite revocación y rol actual; renovación escribe como máximo cada cinco minutos por sesión |
-| Rate limit         | Memoria del proceso                              | Reiniciar borra ventanas; varias réplicas tienen contadores independientes                    |
-| JSON/formulario    | Límite de 1 MiB para cada parser                 | Multipart se limita aparte por uso                                                            |
-| Subidas            | Multer en memoria, un archivo                    | El buffer cuenta en RSS; un recurso puede ocupar hasta 20 MiB por petición                    |
-| Probe de video     | Fetch con timeout de 3000 ms por defecto         | No hay caché ni semáforo global de probes                                                     |
+| Resource          | Implementation                                                    | Implication                                                                                   |
+| ----------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| PostgreSQL        | One `PrismaPg` with `connectionString`                            | No application-configured `max`, query timeout, or admission queue.                           |
+| Passwords         | Argon2id with library defaults                                    | No application-owned bounded queue or global cryptographic-work limit.                        |
+| Required sessions | Session/user read per request                                     | Supports revocation and current roles; renewal writes at most every five minutes per session. |
+| Rate limits       | Process memory                                                    | Restart clears windows; replicas maintain independent counters.                               |
+| JSON/form         | 1 MiB limit for each parser                                       | Multipart limits are separate and usage-specific.                                             |
+| Uploads           | Multer in memory, one file                                        | Buffers contribute to RSS; a resource can consume up to 20 MiB per request.                   |
+| Video probe       | Fetch with a default 3000 ms timeout                              | No cache or global probe semaphore.                                                           |
+| Storage cleanup   | Up to 10 jobs per cycle; leased jobs and bounded storage requests | Retries survive restarts; measure queue growth and database/storage latency under load.       |
 
-El presupuesto de dos conexiones, la cola Argon2 y las mediciones de Admin no describen Academy.
-Consultar [configuración Prisma](../src/config/prisma_client.ts),
-[hash de contraseñas](../src/infrastructure/password/hash_password.ts) y
-[multipart](../src/middlewares/file_upload.ts) antes de cambiar sus límites.
+Admin's two-connection budget, Argon2 queue, and measurements do not describe Academy. Check [Prisma configuration](../src/config/prisma_client.ts), [password hashing](../src/infrastructure/password/hash_password.ts), and [multipart](../src/middlewares/file_upload.ts) before changing limits.
 
-## Consultas y crecimiento
+## Queries and growth
 
-Catálogo agrupa totales en PostgreSQL y obtiene facetas sin cargar el contenido de artículos.
-Sin embargo, devuelve todos los cursos coincidentes y aplica la búsqueda normalizada en Node.
-El listado administrativo de cursos también carece de paginación. Ambas decisiones sirven al
-catálogo actual y deben revisarse antes de introducir miles de cursos.
+The catalog aggregates totals in PostgreSQL and reads facets without article content. It still returns all matching courses and applies normalized search in Node. The administrative course list is also unpaginated. Both choices fit the current catalog and need review before thousands of courses.
 
-«Mis cursos» obtiene lecciones de varios cursos en una consulta y cruza los resultados por id.
-El progreso usa inserción con conflicto ignorado y actualización condicional, evitando una
-lectura previa para decidir el máximo. Las transacciones de marcado se mantienen cortas.
+My courses fetches lessons from several courses in one query and joins results by ID. Progress uses conflict-ignored insertion and conditional updates, avoiding an initial read to choose the maximum. Completion transactions remain short.
 
-Moderación limita páginas a 50; directorio y avisos a 100. La búsqueda del directorio lee
-candidatos de todos los usuarios y normaliza nombre/correo/organización en memoria, tanto para
-conteo como para página/exportación. No se debe afirmar que esa búsqueda sea indexada ni que
-todo el trabajo esté limitado por `per_page`.
+Moderation pages are limited to 50; directory and notification pages to 100. Directory search reads candidate users and normalizes name/email/organization in memory for counts, pages, and exports. This search is not indexed, and `per_page` does not bound all of its work.
 
-El CSV de usuarios cuenta primero y rechaza más de `ADMIN_EXPORT_MAX_ROWS` (50000 por defecto),
-pero después materializa filas y buffer completos. El CSV de avisos y la agrupación de temas
-leen todo el conjunto seleccionado y no tienen ese tope. El hilo público de comentarios tampoco
-está paginado. Son los primeros puntos a medir si crece la comunidad.
+User CSV counts first and rejects more than `ADMIN_EXPORT_MAX_ROWS` (50000 by default), then materializes complete rows and the buffer. Notification CSV and topic grouping read the entire selected set without that cap. Public comment threads are unpaginated. These are early measurement targets as the community grows.
 
-## Medición antes de aumentar capacidad
+## Measure before increasing capacity
 
-Medir `node dist/server.js` por separado de `tsx watch`, compilación y Jest. Registrar versión
-de Node, configuración no sensible, tamaño de fixtures, concurrencia, p50/p95/p99, errores,
-RSS/heap y conexiones activas. No copiar cifras de otro producto ni presentar una llamada
-secuencial local como prueba de carga.
+Measure `node dist/server.js` separately from `tsx watch`, compilation, and Jest. Record Node version, non-sensitive configuration, fixture size, concurrency, p50/p95/p99, errors, RSS/heap, and active connections. Do not copy another product's figures or present one sequential local call as a load test.
 
-Los escenarios relevantes son login simultáneo, catálogo con búsqueda, directorio con CSV,
-subidas de recursos cercanas al límite y avance concurrente de muchos alumnos. Usar una base
-desechable y archivos propios. Revisar planes `EXPLAIN`, índices y proyecciones antes de ampliar
-el pool o añadir infraestructura.
+Relevant scenarios include simultaneous sign-ins, catalog search, directory CSV, uploads near their limits, and many students advancing concurrently. Use a disposable database and owned files. Review `EXPLAIN` plans, indexes, and projections before expanding the pool or adding infrastructure.
 
-Separar el tiempo del proveedor de video/SMTP del tiempo de PostgreSQL. El cierre ordenado debe
-liberar HTTP, Prisma y transporte de correo sin procesos pendientes. Si se usan varias
-instancias, acordar almacenamiento compartido y rate limit antes de repartir tráfico.
+Separate video/SMTP provider time from PostgreSQL time. Orderly shutdown must release HTTP, the cleanup worker, Prisma, and email without pending processes. Multiple instances require agreed shared storage and rate limiting before distributing traffic.
 
-## Aceptación de una optimización
+## Optimization acceptance
 
-Conservar los [contratos y métricas](planning/metrics/README.md): no recortar la página después
-de buscar, alterar facetas, perder el máximo del progreso ni exponer columnas para ahorrar un
-mapper. Anotar carga inicial, cambio y medida posterior en la entrega. La validación funcional
-está en [TESTING](TESTING.md).
+Preserve [contracts and metrics](planning/metrics/README.md): do not truncate pages after searching, alter facets, lose monotonic progress, or expose columns to avoid a mapper. Record baseline load, change, and subsequent measurements in release notes. Functional verification is described in [TESTING](TESTING.md).

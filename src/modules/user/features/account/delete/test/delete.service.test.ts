@@ -2,7 +2,7 @@ import { ErrorCodes } from '@/constants/error_codes';
 import { HttpStatusCodes } from '@/constants/http_status_codes';
 import { UserMessages } from '@/constants/messages/user';
 import { verifyPassword } from '@/infrastructure/password/hash_password';
-import { storage } from '@/infrastructure/storage/storage';
+import { removeStoredFile } from '@/infrastructure/storage/cleanup';
 import { deleteAccountService } from '@/modules/user/features/account/delete/presentation/delete.service';
 import {
   deleteUserAccount,
@@ -25,12 +25,13 @@ jest.mock('@/infrastructure/storage/storage', () => ({
 jest.mock('@/config/logger', () => ({
   logger: { warn: jest.fn(), info: jest.fn(), error: jest.fn() },
 }));
+jest.mock('@/infrastructure/storage/cleanup', () => ({ removeStoredFile: jest.fn() }));
 
 const findCredentialsMock = jest.mocked(findUserCredentialsById);
 const findAvatarMock = jest.mocked(findUserAvatar);
 const deleteAccountMock = jest.mocked(deleteUserAccount);
 const verifyPasswordMock = jest.mocked(verifyPassword);
-const removeMock = jest.spyOn(storage, 'remove');
+const removeMock = jest.mocked(removeStoredFile);
 
 const PASSWORD_HASH = '$argon2id$v=19$m=65536,t=3,p=4$sal$hash';
 

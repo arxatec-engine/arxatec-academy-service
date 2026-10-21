@@ -1,6 +1,6 @@
 import { ErrorCodes } from '@/constants/error_codes';
 import { HttpStatusCodes } from '@/constants/http_status_codes';
-import { storage } from '@/infrastructure/storage/storage';
+import { removeStoredFile } from '@/infrastructure/storage/cleanup';
 import { deleteAvatarService } from '@/modules/user/features/profile/delete_avatar/presentation/delete_avatar.service';
 import { findUserAvatar, setUserAvatar } from '@/modules/user/shared/data/user_account.repository';
 import { userRecord } from '@/modules/user/shared/test/user_fixtures';
@@ -17,10 +17,11 @@ jest.mock('@/infrastructure/storage/storage', () => ({
 jest.mock('@/config/logger', () => ({
   logger: { warn: jest.fn(), info: jest.fn(), error: jest.fn() },
 }));
+jest.mock('@/infrastructure/storage/cleanup', () => ({ removeStoredFile: jest.fn() }));
 
 const findAvatarMock = jest.mocked(findUserAvatar);
 const setAvatarMock = jest.mocked(setUserAvatar);
-const removeMock = jest.spyOn(storage, 'remove');
+const removeMock = jest.mocked(removeStoredFile);
 
 beforeEach(() => {
   findAvatarMock.mockResolvedValue({ avatar_key: 'avatars/vieja.png' });

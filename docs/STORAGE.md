@@ -1,137 +1,77 @@
-# Archivos de Academy
+# Academy files
 
-Portadas, recursos de lección y avatares usan el mismo
-[puerto](../src/infrastructure/storage/storage.types.ts): `save`, `remove`, `publicUrl` y `readUrl`.
-Están implementados [local](../src/infrastructure/storage/local_storage.adapter.ts) y
-[S3 con CloudFront firmado](../src/infrastructure/storage/s3_storage.adapter.ts).
-La selección se realiza al iniciar el proceso; los services conservan sus rutas multipart.
+Covers, lesson resources, and avatars share a [port](../src/infrastructure/storage/storage.types.ts): `save`, `remove`, `publicUrl`, and `readUrl`. Both [local](../src/infrastructure/storage/local_storage.adapter.ts) and [S3 with signed CloudFront](../src/infrastructure/storage/s3_storage.adapter.ts) adapters are implemented. Selection occurs at process startup; services retain their multipart routes.
 
-## Contratos de subida
+## Upload contracts
 
-| Uso                | Ruta bajo `/api/v1`                        | Formato permitido                 | Tamaño máximo |
-| ------------------ | ------------------------------------------ | --------------------------------- | ------------- |
-| Avatar propio      | `PUT /me/avatar`                           | JPEG, PNG                         | 2 MiB         |
-| Portada de curso   | `PUT /admin/courses/:id/cover`             | JPEG, PNG, WebP                   | 5 MiB         |
-| Recurso de lección | `POST /admin/lessons/:lesson_id/resources` | PDF, DOC/DOCX, XLS/XLSX, PPT/PPTX | 20 MiB        |
+| Usage           | Route under `/api/v1`                      | Allowed format                    | Maximum size |
+| --------------- | ------------------------------------------ | --------------------------------- | ------------ |
+| Own avatar      | `PUT /me/avatar`                           | JPEG, PNG                         | 2 MiB        |
+| Course cover    | `PUT /admin/courses/:id/cover`             | JPEG, PNG, WebP                   | 5 MiB        |
+| Lesson resource | `POST /admin/lessons/:lesson_id/resources` | PDF, DOC/DOCX, XLS/XLSX, PPT/PPTX | 20 MiB       |
 
-Enviar multipart con un único campo `file`; el recurso exige también `title`.
-La autenticación/autorización precede a Multer, que recibe los bytes en memoria.
-`validateUpload` comprueba tamaño, MIME permitido y firma binaria. Las firmas ZIP/OLE
-identifican contenedores Office; no inspeccionan su contenido completo.
+Send multipart with one `file` field; resources also require `title`. Authentication/authorization precede Multer, which buffers bytes in memory. `validateUpload` checks size, allowed MIME, and binary signature. ZIP/OLE signatures identify Office containers, not their complete contents.
 
-La portada debe ser horizontal, de al menos 1200 × 750 píxeles: `422 IMAGE_TOO_SMALL`.
-Un formato inválido devuelve `415 INVALID_FILE_TYPE`; exceso de tamaño,
-`413 FILE_TOO_LARGE`; multipart inválido, `400 VALIDATION_ERROR`.
-Ver [políticas de archivos](../src/constants/files.ts) y [cursos](../src/constants/courses.ts).
+Covers must be landscape and at least 1200 × 750 pixels, otherwise `422 IMAGE_TOO_SMALL`. Invalid formats return `415 INVALID_FILE_TYPE`; oversized files return `413 FILE_TOO_LARGE`; invalid multipart returns `400 VALIDATION_ERROR`. See [file](../src/constants/files.ts) and [course policies](../src/constants/courses.ts).
 
-## Claves y URLs
+## Keys and URLs
 
-El servidor genera `public/avatars/`, `public/course_covers/` y `private/lesson_resources/`.
-Las claves legacy de dos segmentos siguen siendo válidas para leer o borrar, y se firman al leer
-si no tienen el root `public/`; eso no modifica los permisos del comportamiento CDN para su ruta.
-Los adaptadores validan claves antes de escribir o borrar; S3 también las valida antes de
-construir o firmar URLs. No se aceptan rutas absolutas, traversal, query strings ni URLs como clave.
+The server generates `public/avatars/`, `public/course_covers/`, and `private/lesson_resources/`. Legacy two-segment keys remain valid for reads/deletes and are signed when outside the `public/` root; this does not change the CDN behavior's access policy for that path. Adapters validate keys before writes/deletes; S3 also validates before URL construction/signing. Absolute paths, traversal, query strings, and URLs are not valid keys.
 
-La base conserva URL canónica y clave interna por separado: `avatar_url/avatar_key`,
-`cover_image_url/cover_image_key` y `file_url/file_key`. `save().url` y `publicUrl(key)` son
-estables y no tienen firma temporal. La semilla usa `publicUrl` para sus metadatos de ejemplo;
-no sube los bytes ni prueba que existan.
+The database stores canonical URLs separately from internal keys: `avatar_url/avatar_key`, `cover_image_url/cover_image_key`, and `file_url/file_key`. `save().url` and `publicUrl(key)` are stable without temporary signatures. The seed uses `publicUrl` for sample metadata; it neither uploads bytes nor proves objects exist.
 
-Al construir respuestas, los services usan [resolveStoredFileUrl](../src/infrastructure/storage/file_url.ts)
-con la clave consultada por el repositorio. En S3, `readUrl(key)` devuelve `/public/` sin firma
-y firma `/private/` al leer; en local entrega la URL local. Las claves internas no se añaden al DTO. Avatares externos de
-Google y filas legacy con clave nula conservan su URL original: no se firma una URL arbitraria.
-Las fotos de docentes introducidas como URL externa tampoco pasan por este almacenamiento.
+Services build responses with [resolveStoredFileUrl](../src/infrastructure/storage/file_url.ts) and repository-selected keys. With S3, `readUrl(key)` returns unsigned `/public/` URLs and signs `/private/` on read; local returns local URLs. Internal keys do not enter DTOs. External Google avatars and legacy null-key rows retain their original URLs; arbitrary URLs are not signed. Teacher photos entered as external URLs also bypass this storage.
 
-La lectura usa la base actual y la clave persistida. Cambiar de dominio no exige reescribir las
-URLs de filas con clave, pero sí disponer de los mismos objetos bajo las mismas claves en el
-origen nuevo. Las filas sin clave requieren una migración controlada.
+Reads use the current base URL and persisted key. Changing domains does not require rewriting keyed-row URLs, but the new origin must contain the same keys/objects. Keyless rows need a controlled migration.
 
-## S3 y CloudFront privado
+## Private S3 and CloudFront
 
-Con `STORAGE_DRIVER=s3`, la API sube mediante `PutObject` y elimina mediante `DeleteObject`.
-Conserva bytes, `Content-Type` y longitud; no envía ACL pública. Los fallos de AWS o de firma
-producen `503 STORAGE_UNAVAILABLE` sin exponer detalles del proveedor. No hay fallback a S3
-público ni a URLs CDN sin firma. Los reintentos y timeouts están acotados.
+With `STORAGE_DRIVER=s3`, uploads use `PutObject` and deletion uses `DeleteObject`. Bytes, `Content-Type`, and length are preserved; no public ACL is sent. AWS/signing failures return `503 STORAGE_UNAVAILABLE` without provider details. There is no fallback to public S3 or unsigned private CDN URLs. Retries and timeouts are bounded.
 
-Configuración mínima (los valores son ejemplos, no credenciales):
+Minimal configuration, using examples rather than credentials:
 
-```dotenv
+```text
 STORAGE_DRIVER=s3
 AWS_REGION=us-east-1
 S3_ACADEMY_PRODUCT_BUCKET=academy-files
 CDN_ACADEMY_PRODUCT_BASE_URL=https://cdn.academy.example.com
-CLOUDFRONT_ACADEMY_PRODUCT_KEY_PAIR_ID=ID_DE_LA_CLAVE_PUBLICA
+CLOUDFRONT_ACADEMY_PRODUCT_KEY_PAIR_ID=PUBLIC_KEY_ID
 CLOUDFRONT_ACADEMY_PRODUCT_PRIVATE_KEY_PATH=/run/secrets/cloudfront-private.pem
 CLOUDFRONT_SIGNED_URL_TTL_SECONDS=300
 ```
 
-Para AWS, usar el rol IAM/default credential chain o completar conjuntamente
-`AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY`; `AWS_SESSION_TOKEN` admite credenciales temporales.
-La identidad del backend necesita `s3:PutObject` y `s3:DeleteObject` en sus prefijos de archivos.
-Permisos adicionales de KMS dependen del cifrado del bucket.
+Inject these through Infisical or the deployment environment. The path example requires a secret mounted by infrastructure; no repository-local PEM is supplied. Use an IAM role/default credential chain, or provide both `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`; `AWS_SESSION_TOKEN` supports temporary credentials. The backend identity needs `s3:PutObject` and `s3:DeleteObject` for its prefixes. Additional KMS permissions depend on bucket encryption.
 
-Los nombres de producto tienen prioridad con S3; se conservan los alias genéricos de [ENV](ENV.md).
-Para firmar, configurar exactamente una fuente: `CLOUDFRONT_ACADEMY_PRODUCT_PRIVATE_KEY` con PEM inline
-(admite saltos escapados) o `CLOUDFRONT_ACADEMY_PRODUCT_PRIVATE_KEY_PATH` con un archivo privado legible por el
-proceso. Nunca colocar ese PEM en el frontend, repositorio o carpeta pública de archivos.
-La clave RSA debe ser de 2048 bits. La configuración inválida falla al inicio sin imprimirla.
-La firma usa SHA256 y caduca en 300 segundos por defecto; el TTL admite enteros de 1 a 86400.
-El ID corresponde a la clave pública de CloudFront, no al grupo ni a la distribución.
+Product variable names take priority with S3; generic aliases remain supported as listed in [ENV](ENV.md). Configure exactly one signing source: inline `CLOUDFRONT_ACADEMY_PRODUCT_PRIVATE_KEY` (escaped newlines supported), or `CLOUDFRONT_ACADEMY_PRODUCT_PRIVATE_KEY_PATH` pointing to a readable mounted private file. Never place PEM content in the frontend, repository, or public files directory. RSA must be 2048 bits. Invalid configuration fails startup without printing the key. Signing uses SHA256 and defaults to 300-second expiration; TTL accepts 1–86400 seconds. The ID is the CloudFront public key ID, not the group/distribution ID.
 
-La distribución debe tener **Restrict viewer access** activado y un grupo confiable con esa
-clave pública en el comportamiento `/private/*`. `/public/*` debe permitir lectura sin firma. El bucket debe permanecer
-privado, con Block Public Access y acceso de origen CloudFront mediante OAC/política limitada
-a la distribución. OAC protege el origen; la firma controla el acceso del navegador.
-Configurar HTTPS y, si el frontend descarga con fetch, CORS para sus orígenes y GET/HEAD/OPTIONS.
-Fuentes AWS: [URLs firmadas](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-signed-urls.html),
-[claves confiables](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-trusted-signers.html)
-y [OAC para S3](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html).
+Enable **Restrict viewer access** and the trusted key group on `/private/*`. `/public/*` must allow unsigned reads. Keep S3 private with Block Public Access and CloudFront OAC/origin policy restricted to the distribution. OAC protects the origin; signing controls browser access. Configure HTTPS and, if frontend downloads use fetch, CORS for the appropriate origins and GET/HEAD/OPTIONS. AWS references: [signed URLs](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-signed-urls.html), [trusted keys](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-trusted-signers.html), and [S3 OAC](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html).
 
-## Autorización, caducidad y caché
+## Authorization, expiration, and caching
 
-Una lección bloqueada no consulta ni entrega sus recursos. Cuando el acceso está autorizado,
-la respuesta contiene URLs temporales para los recursos. Una URL firmada es utilizable por
-quien la tenga hasta su vencimiento; no depende del Bearer durante la descarga CDN.
-Las portadas y avatares nuevos usan `/public/` y no llevan firma ni vencimiento temporal.
+Locked lessons neither query nor return resources. Authorized responses contain temporary resource URLs. Anyone holding a signed URL can use it until expiration; CDN downloads do not depend on Bearer authentication. New covers/avatars use `/public/` without signatures or expiration.
 
-La API envía `Cache-Control: private, no-store`. El cliente debe volver a consultar la API para
-renovar enlaces vencidos y evitar persistirlos como referencias definitivas. La caché en memoria
-del frontend también debe respetar ese plazo; el header HTTP no invalida un estado JS ya cargado.
-La política de caché de objetos en CloudFront se configura por separado.
-En local, `/files` sigue siendo público, sin Bearer; no proporciona la protección de CloudFront.
+The API sends `Cache-Control: private, no-store`. Clients must query again to renew expired links and avoid retaining them as permanent references. Frontend in-memory caching must respect that lifetime; HTTP headers do not invalidate existing JavaScript state. CloudFront object caching is configured separately. Local `/files` remains public without Bearer and does not provide CloudFront's protection.
 
-## Sustitución, referencias y despliegue
+## Replacement, references, and deployment
 
-Al sustituir avatar o portada se guarda el objeto nuevo, se actualiza la fila y después se
-intenta retirar el anterior. Recursos compartidos por cursos duplicados consultan referencias
-antes del borrado. Base y storage no forman una transacción distribuida; puede quedar limpieza
-pendiente. Los services conservan sus reglas de compensación.
+Avatar/cover replacement saves the new object, updates the row, then attempts to delete the old object. Deleting a lesson removes its associated stored resources; deleting a resource removes its file. Hard-deleting a course also removes its cover and cascaded lesson resources. Archiving retains files because content still exists. Account deletion or avatar removal deletes the owned photo. External URLs are not deleted.
 
-Antes de cambiar de local a S3, copiar los bytes bajo sus claves originales y revisar filas sin
-clave. No basta con cambiar el driver. Con local, persistir y respaldar la carpeta junto a la base.
-Los archivos Vimeo/YouTube no se suben por este puerto.
+Migration `20261021030000_storage_deletions` records detached keys in `storage_deletions` using triggers on `lesson_resources`, `courses`, and `users`, in the same transaction, including cascades. Rollback creates no cleanup. Apply this migration before starting the backend; `prisma db push` does not install triggers. The queue does not depend on the process surviving long enough to execute code after commit.
 
-Los tests usan S3 simulado y claves RSA efímeras: validan comandos, bytes, MIME, errores, firma
-SHA256, recurso exacto, renovación y configuración. Eso no acredita permisos ni una distribución
-real. Verificar en el entorno final subida/lectura/borrado y que enlaces sin firma, alterados o
-vencidos devuelvan 403, también con objetos previamente cacheados. Ver
-[planificación de archivos](planning/storage/README.md) y [entorno](ENV.md).
+[cleanup](../src/infrastructure/storage/cleanup.ts) attempts immediate deletion from services. Before deletion it checks resources, covers, and avatars for references: duplicated-course files remain until the last reference disappears. Uploads whose database write fails also attempt to queue/clean the new object without hiding the original error; a database outage during compensation is logged.
 
-## Prueba real de desarrollo
+The server processes up to 10 jobs at startup and every 30 seconds. Failures remain queued with exponential delay from one minute to one hour, without discarding jobs after an attempt limit. Jobs are leased for two minutes; restarts recover expired leases. `SKIP LOCKED` and per-lease tokens support multiple processes without acknowledging another worker's job. Shutdown stops cleanup before disconnecting Prisma. Deleting an already-absent object is idempotent. The queue does not scan the bucket or purge objects orphaned before this migration.
 
-El 2026-10-19 se verificó `arxatec-academy-product-development` con
-`https://cdn.dev.academy.arxatec.net`: subida/lectura/borrado S3, MIME y bytes; `/public/`
-sin firma 200; `/private/` firmado 200, sin firma 403, firma alterada 403 y vencimiento real 403.
-El origen S3 rechazó lectura anónima con 403 en ambos roots. Se borraron los tres fixtures
-y se confirmó 404 en S3. La clave privada y las credenciales se mantuvieron fuera de los logs.
+Before switching local storage to S3, copy bytes under original keys and review keyless rows. Changing the driver alone is insufficient. Persist/back up local files together with the database. Vimeo/YouTube files are not uploaded through this port.
 
-Repetir con `pnpm storage:check:development`. El script compila primero, exige entorno y bucket
-de desarrollo, genera nombres únicos y limpia solo sus fixtures incluso ante fallo. No toca la DB
-ni cambia políticas AWS. El TTL habitual sigue en 300 s; el caso de vencimiento usa un enlace
-adicional de 4 s. El SDK redondea el vencimiento a segundos.
+Tests use simulated S3 and ephemeral RSA keys to verify commands, bytes, MIME, errors, SHA256 signatures, exact resources, renewal, and configuration. This does not certify permissions or a real distribution. Verify final-environment upload/read/delete and unsigned/tampered/expired 403 behavior, including previously cached objects. See [storage planning](planning/storage/README.md) and [environment](ENV.md).
 
-El CDN devolvió `Miss from cloudfront` en las lecturas: no se acredita un hit de caché caliente.
-Tampoco devolvió Access-Control-Allow-Origin para el origen frontend de la prueba; si se incorporan
-descargas mediante fetch/blob será necesario configurar CORS. Los enlaces de navegación no
-requieren ese permiso. La renovación de enlaces en memoria del frontend se verifica aparte.
+## Real development verification
+
+On 2026-10-19, `arxatec-academy-product-development` and `https://cdn.dev.academy.arxatec.net` were verified for S3 upload/read/delete, MIME, and bytes. Unsigned `/public/` returned 200; signed `/private/` returned 200; unsigned, tampered, and actually expired private URLs returned 403. S3 denied anonymous reads on both roots. All three fixtures were deleted and absence confirmed with 404. Private keys and credentials stayed out of logs.
+
+On 2026-10-20, a temporary lesson's PDF was uploaded to S3, existence was confirmed, the lesson was deleted through its service, and S3 returned 404. No job remained for that key, and the temporary course/fixtures were removed. Disposable PostgreSQL integration covered nine cleanup cases, including shared references, cascades, retries, lease recovery, and rollback.
+
+Repeat infrastructure verification with `pnpm storage:check:development`. The script builds first, requires development environment/bucket, generates unique names, and removes only its fixtures even after failures. It does not touch the database or change AWS policies. Normal TTL remains 300 seconds; expiration uses an additional four-second URL, with SDK expiration rounded to seconds.
+
+The CDN returned `Miss from cloudfront`, so a warm cache hit was not established. It also omitted Access-Control-Allow-Origin for the tested frontend origin; fetch/blob downloads would need CORS. Navigation links do not require that permission. Frontend in-memory URL renewal is verified separately.

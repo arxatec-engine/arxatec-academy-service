@@ -1,73 +1,47 @@
-# Autenticación, sesiones y Google
+# Authentication, sessions, and Google
 
-**Estado:** implementado. [Contrato HTTP](../../API.md) ·
-[Módulo](../../../src/modules/auth/docs/README.md) · [Índice](../README.md).
-El actor pertenece a Academy y se autentica con correo/contraseña o Google.
+**Status:** implemented. [HTTP contract](../../API.md) · [Module](../../../src/modules/auth/docs/README.md) · [Index](../README.md).
 
-## Fuentes y datos públicos
+Actors belong to Academy and authenticate with email/password or Google.
 
-`users` conserva perfil, proveedor, rol y fecha de verificación; `auth_sessions` conserva estado
-de sesión; `auth_tokens` los secretos hasheados; `oauth_accounts` la vinculación externa.
-La API de usuario publica id, nombre, correo, rol, organización, independencia, ciudad,
-avatar, verificación, proveedor y creación. Excluye hash, clave de avatar, tokens OAuth y
-metadatos privados de sesión.
+## Sources and public data
 
-El registro solo exige `full_name`, `email` y `password`. Acepta perfil opcional; omitir ciudad
-produce OTHER/null. Enviar OTHER explícito exige `city_other`. El rol no se elige desde el body:
-se crea STUDENT. El correo se recorta y pasa a minúsculas; las contraseñas de 8–128 caracteres
-se conservan exactamente. Login acepta contraseña no vacía, sin imponer de nuevo el mínimo.
+`users` stores profile, provider, role, and verification date; `auth_sessions` stores session state; `auth_tokens` stores hashed secrets; `oauth_accounts` stores external links. Public users expose ID, name, email, role, organization, independent status, city, avatar, verification, provider, and creation time, excluding hashes, avatar keys, OAuth tokens, and private session metadata.
 
-## Acciones y resultados
+Registration requires only `full_name`, `email`, and `password`. Profile fields are optional; omitted city produces OTHER/null, while explicit OTHER requires `city_other`. Clients cannot choose roles: registration creates STUDENT. Email is trimmed/lowercased; passwords of 8–128 characters are preserved exactly. Sign-in requires only nonempty passwords, without reapplying the registration minimum.
 
-| Acción bajo `/api/v1/auth` | Resultado                        | Regla                                              |
-| -------------------------- | -------------------------------- | -------------------------------------------------- |
-| `POST /register`           | 201 con token, expires_at y user | Crea cuenta y sesión; intenta verificar por correo |
-| `POST /login`              | 200 con sesión                   | remember_me por defecto true                       |
-| `GET /me`                  | 200 con user                     | Requiere JWT y sesión activa                       |
-| `POST /logout`             | 200 sin data                     | Cierra la sesión identificada por jti; repetible   |
-| `POST /password/forgot`    | 200 genérico                     | Correo existente/desconocido comparten respuesta   |
-| `POST /password/reset`     | 200 sin data                     | Consume token y revoca todas las sesiones          |
-| `POST /email/verify`       | 200 sin data                     | Segundo clic devuelve EMAIL_ALREADY_VERIFIED       |
-| `POST /email/resend`       | 200 con espera                   | Sesión; cooldown de 45 segundos                    |
-| `GET /google`              | 302 a Google                     | State firmado y nonce asociado al navegador        |
-| `GET /google/callback`     | 302 al frontend                  | Código opaco de canje, no JWT                      |
-| `POST /google/exchange`    | 200 con sesión                   | Código de 60 segundos y un uso                     |
+## Actions and results
 
-## Sesión y autorización
+| Action under `/api/v1/auth` | Result                                                        | Rule                                                        |
+| --------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------- |
+| `POST /register`            | 201 with token, expires_at, user, and verification_email_sent | Creates account/session and attempts verification delivery. |
+| `POST /login`               | 200 with session                                              | remember_me defaults true.                                  |
+| `GET /me`                   | 200 with user                                                 | JWT and active session required.                            |
+| `POST /logout`              | 200 without data                                              | Closes token jti; repeatable.                               |
+| `POST /password/forgot`     | Generic 200                                                   | Same response for known/unknown email.                      |
+| `POST /password/reset`      | 200 without data                                              | Consumes token and revokes all sessions.                    |
+| `POST /email/verify`        | 200 without data                                              | Repeated click returns EMAIL_ALREADY_VERIFIED.              |
+| `POST /email/resend`        | 200 with retry delay                                          | Session required; 45-second cooldown.                       |
+| `GET /google`               | 302 to Google                                                 | Signed state and browser-bound nonce.                       |
+| `GET /google/callback`      | 302 to frontend                                               | Opaque exchange code, not JWT.                              |
+| `POST /google/exchange`     | 200 with session                                              | One-use, 60-second code.                                    |
 
-El JWT tiene tope absoluto de 180 días. La fila aplica inactividad de 30 días con remember_me
-o 12 horas sin él; autenticación obligatoria renueva cada cinco minutos como máximo. La
-autenticación opcional no renueva ni responde 401 por un Bearer inválido: continúa como anónimo.
-Una caída de base sigue siendo un error, no una sesión anónima inventada.
+## Session and authorization
 
-El rol y la verificación se leen del usuario relacionado, no del claim antiguo. Logout admite
-una sesión revocada pero no un token falso ni una sesión caducada/inexistente. No existe refresh
-token independiente. La cookie OAuth solo protege el handshake; no sustituye Bearer.
+JWTs have a 180-day absolute cap. Rows apply 30-day inactivity with remember_me or 12 hours without; required authentication renews at most every five minutes. Optional authentication neither renews nor returns 401 for invalid Bearer, continuing anonymously. Database outages remain errors rather than fabricated anonymous sessions.
 
-## Tokens, correo y concurrencia
+Roles/verification come from related users, not stale claims. Sign-out accepts revoked sessions but not false tokens or expired/missing sessions. There is no separate refresh token. OAuth cookies protect the handshake only; they do not replace Bearer.
 
-El token de verificación dura 24 horas y el de recuperación una hora. Los repositorios
-consumen por condición `consumed_at: null`. Reset agrupa consumo, hash, verificación y
-revocación de sesiones en una transacción. Emitir un nuevo enlace invalida el anterior de ese
-flujo. No devolver secretos ni el usuario a quien únicamente presenta el enlace de verificación.
+## Tokens, email, and concurrency
 
-Registro conserva la cuenta aunque falle SMTP. Forgot inicia el envío sin esperarlo y aplica
-suelo de 400 ms. Login desconocido usa un hash Argon2 señuelo; Google sin contraseña conserva
-el error explícito `409 ACCOUNT_USES_GOOGLE`. No se promete indistinguibilidad para todos los
-tipos de cuenta.
+Verification tokens last 24 hours; recovery tokens one hour. Repositories consume with `consumed_at: null` conditions. Reset groups consumption, hashing, verification, and session revocation transactionally. A new link invalidates the earlier link in that flow. Never return secrets or a user profile solely to a verification-link holder.
 
-`redirect_to` solo acepta un path relativo seguro; se rechazan esquemas, host, doble barra,
-barra invertida y controles. El callback comprueba el state y su cookie antes del perfil;
-un correo Google no verificado no vincula una cuenta existente.
+Registration retains accounts after SMTP failure. Forgot starts delivery without waiting and applies a 400 ms floor. Unknown sign-in uses a dummy Argon2 hash; Google accounts without passwords retain `409 ACCOUNT_USES_GOOGLE`. Indistinguishability is not promised for every account type.
 
-## Pruebas, límites y pendientes
+`redirect_to` accepts only safe relative paths, rejecting schemes, hosts, double slashes, backslashes, and controls. Callbacks check state/cookie before profiles; unverified Google email cannot link an existing account.
 
-Los unitarios viven en cada acción; [auth_flow](../../../tests/integration/postgres/auth_flow.test.ts)
-comprueba el flujo persistido y la revocación. Los tests Google usan colaboradores sustituidos
-y no prueban un consentimiento real del proveedor. Límites detallados en [API](../../API.md).
+## Tests, limits, and follow-up
 
-Los repositorios de tokens siguen repartidos en varias acciones; consolidarlos en shared es
-deuda técnica. Un fallo de proveedor en callback puede devolver JSON 500 al navegador; un
-retorno de error por redirección necesita contrato compartido con el frontend. El alta inicial
-de ADMIN productivo necesita procedimiento autorizado: el seed bloquea producción y el
-registro público no eleva rol.
+Unit tests live in each action. [auth_flow](../../../tests/integration/postgres/auth_flow.test.ts) covers persisted flows and revocation. Google tests substitute collaborators and do not prove provider consent. Detailed limits are in [API](../../API.md).
+
+Token repositories remain spread across actions; consolidation into shared is technical debt. Callback provider failures may return JSON 500 to the browser; a redirected error return needs a shared frontend contract. Initial production ADMIN provisioning requires an authorized procedure: seed blocks production, and public registration never elevates roles.

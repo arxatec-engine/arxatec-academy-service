@@ -1,21 +1,21 @@
-# Registro de entregas
+# Delivery log
 
-Una sección por cambio entregado, agrupada por semana ISO en `YYYY_Wnn.md`. El formato adapta
-el registro de Admin: intención, rama/PR cuando exista, cambios, verificación y pendientes.
+Use one section per delivered change, grouped by ISO week in `YYYY_Wnn.md`. The format adapts
+Admin's log: intent, branch/PR when available, changes, verification, and remaining work.
 
-La documentación de una implementación existente no convierte su fecha de revisión en fecha de
-entrega funcional. No reconstruir resultados de tests ni afirmar despliegues de memoria.
+Documenting an existing implementation does not make the review date its functional delivery
+date. Do not reconstruct test results or claim deployments from memory.
 
-## Formato
+## Format
 
 ```text
-## Título del cambio
+## Change title
 
-Intención: problema y comportamiento esperado.
-Rama/PR: referencia, si existe.
-Cambios: archivos/contratos relevantes y razón del cambio.
-Verificación: comandos realmente ejecutados y resultado; entorno sin secretos.
-Pendientes: límites o trabajo que sigue abierto.
+Intent: problem and expected behavior.
+Branch/PR: reference, when available.
+Changes: relevant files/contracts and reasons.
+Verification: commands actually run and results; environment without secrets.
+Remaining work: limits or open tasks.
 ```
 
-Índice: [2026 W42](2026_W42.md) · [2026 W43](2026_W43.md).
+Index: [2026 W42](2026_W42.md) · [2026 W43](2026_W43.md).

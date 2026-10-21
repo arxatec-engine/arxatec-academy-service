@@ -22,7 +22,10 @@ datos, las identidades estables y la conservación de una suscripción general e
 `seed_exam_questions.ts` contiene preguntas relacionadas con los seis cursos de ejemplo.
 `buildSeedExams` valida cada examen con el mismo schema que administración: 15 preguntas,
 cuatro alternativas distintas y una respuesta correcta por pregunta. Las posiciones correctas
-se distribuyen entre las cuatro opciones. Los exámenes nuevos quedan habilitados y requieren
+se distribuyen entre las cuatro opciones, salvo «Automatiza tus escritos»: sus 15 respuestas
+correctas están en A (índice 0), configurado en `seedExamFixedCorrectOptions`, para facilitar
+las pruebas del flujo de aprobado. Los textos de las opciones se reordenan con su clave para
+mantener correcta la respuesta. Los exámenes nuevos quedan habilitados y requieren
 12 aciertos para aprobar. Completar lecciones permite rendirlos; el certificado se emite al aprobar.
 
 La semilla general incorpora estos exámenes después de guardar los cursos. Para agregar solo
@@ -44,4 +47,5 @@ preguntas genéricas de otro curso.
 
 En desarrollo se verificaron seis altas y una segunda ejecución con cero altas y seis
 configuraciones conservadas. Las pruebas validan cobertura de cursos, schema, calificación,
-distribución de alternativas y persistencia sin sobrescritura.
+distribución de alternativas, aprobado con todas las respuestas A en el curso de automatización
+y persistencia sin sobrescritura.

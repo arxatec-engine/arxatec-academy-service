@@ -1,94 +1,82 @@
 # API — Arxatec Academy
 
-Base: `/api/v1`. Los campos de dominio de la API usan `snake_case`.
+Base: `/api/v1`. Domain fields use `snake_case`.
 
-[Índice documental](README.md) · [Contratos transversales](planning/http_contracts/README.md) ·
-[Matriz de permisos](planning/permissions_audit/README.md).
+[Documentation index](README.md) · [Cross-cutting contracts](planning/http_contracts/README.md) · [Access matrix](planning/permissions_audit/README.md).
 
-El listado siguiente cubre los endpoints registrados por el servidor. Los identificadores
-públicos de cursos y lecciones son slugs; los del panel son ids. Las rutas bajo `/admin` exigen
-Bearer y rol `ADMIN`; las de `/me`, Bearer. Los errores usan `meta.code`.
-El temario público incluye `lesson.id` junto a cada slug: ese id alimenta progreso y comentarios;
-el contenido de las lecciones bloqueadas sigue ausente.
+This list covers registered server endpoints. Public course/lesson identifiers are slugs; administration uses IDs. `/admin` requires Bearer and `ADMIN`; `/me` requires Bearer. Errors use `meta.code`. Public syllabuses expose `lesson.id` alongside slugs for progress/comments, while locked lesson content remains absent.
 
-Las fuentes ejecutables son [rutas](../src/routes/index.ts),
-[endpoints](../src/constants/endpoints.ts), schemas y constantes de `src/`. Las secciones 1–8
-conservan el detalle de auth y su comprobación histórica; las secciones 9–20 completan catálogo,
-aprendizaje, cuenta y administración. La comprobación de 2026-08-21 no certifica rutas añadidas
-posteriormente ni un despliegue actual.
+Executable sources are [routes](../src/routes/index.ts), [endpoints](../src/constants/endpoints.ts), schemas, and constants under `src/`. Sections 1–8 retain authentication details and historical verification; sections 9–20 cover catalog, learning, accounts, and administration. The 2026-08-21 check does not certify subsequently added routes or a current deployment.
 
-## Rutas fuera de autenticación
+## Routes outside authentication
 
-| Método        | Ruta                                         | Acceso                  | Resultado principal                             |
-| ------------- | -------------------------------------------- | ----------------------- | ----------------------------------------------- |
-| GET           | `/courses`                                   | público                 | catálogo, búsqueda y facetas                    |
-| GET           | `/courses/:slug`                             | público                 | ficha y temario publicado                       |
-| GET           | `/courses/:course_slug/lessons/:lesson_slug` | público/Bearer opcional | muestra o lección desbloqueada; `LESSON_LOCKED` |
-| POST          | `/courses/:slug/enroll`                      | Bearer                  | inscripción                                     |
-| GET           | `/courses/:slug/exam`                        | Bearer                  | examen, acceso y último resultado               |
-| POST          | `/courses/:slug/exam/attempts`               | Bearer                  | corrección del examen y certificado al aprobar  |
-| PUT           | `/lessons/:lesson_id/progress`               | Bearer                  | minuto guardado                                 |
-| POST / DELETE | `/lessons/:lesson_id/complete`               | Bearer                  | completar / desmarcar                           |
-| GET           | `/me/courses`                                | Bearer                  | cursos en curso y terminados                    |
-| GET           | `/certificates/:id`                          | público                 | certificado verificable y QR                    |
-| GET           | `/certificates/:id/pdf`                      | público                 | certificado descargable en PDF                  |
-| GET           | `/lessons/:lesson_id/comments`               | público                 | hilo visible                                    |
-| POST          | `/lessons/:lesson_id/comments`               | Bearer verificado       | comentario                                      |
-| POST          | `/comments/:comment_id/replies`              | Bearer verificado       | respuesta                                       |
-| POST          | `/comments/:comment_id/report`               | Bearer                  | reporte                                         |
-| PATCH         | `/me/profile`                                | Bearer                  | editar perfil                                   |
-| PATCH         | `/me/password`                               | Bearer                  | cambiar contraseña                              |
-| PUT / DELETE  | `/me/avatar`                                 | Bearer                  | subir / quitar avatar (`200`)                   |
-| GET           | `/me/summary`                                | Bearer                  | resumen de aprendizaje                          |
-| DELETE        | `/me`                                        | Bearer                  | baja y borrado de datos                         |
-| POST          | `/notifications/signups`                     | público/Bearer opcional | inscribirse a un aviso, idempotente             |
-| POST          | `/notifications/topics`                      | público/Bearer opcional | pedir un tema                                   |
+| Method        | Route                                        | Access                 | Main result                                 |
+| ------------- | -------------------------------------------- | ---------------------- | ------------------------------------------- |
+| GET           | `/courses`                                   | Public                 | Catalog, search, and facets.                |
+| GET           | `/courses/:slug`                             | Public                 | Details and published syllabus.             |
+| GET           | `/courses/:course_slug/lessons/:lesson_slug` | Public/optional Bearer | Sample or unlocked lesson; `LESSON_LOCKED`. |
+| POST          | `/courses/:slug/enroll`                      | Bearer                 | Enrollment.                                 |
+| GET           | `/courses/:slug/exam`                        | Bearer                 | Exam, access, and latest result.            |
+| POST          | `/courses/:slug/exam/attempts`               | Bearer                 | Grading and certificate on passing.         |
+| PUT           | `/lessons/:lesson_id/progress`               | Bearer                 | Saved playback position.                    |
+| POST / DELETE | `/lessons/:lesson_id/complete`               | Bearer                 | Complete/unmark.                            |
+| GET           | `/me/courses`                                | Bearer                 | In-progress/completed courses.              |
+| GET           | `/certificates/:id`                          | Public                 | Verifiable certificate and QR.              |
+| GET           | `/certificates/:id/pdf`                      | Public                 | Downloadable PDF certificate.               |
+| GET           | `/lessons/:lesson_id/comments`               | Public                 | Visible thread.                             |
+| POST          | `/lessons/:lesson_id/comments`               | Verified Bearer        | Comment.                                    |
+| POST          | `/comments/:comment_id/replies`              | Verified Bearer        | Reply.                                      |
+| POST          | `/comments/:comment_id/report`               | Bearer                 | Report.                                     |
+| PATCH         | `/me/profile`                                | Bearer                 | Edit profile.                               |
+| PATCH         | `/me/password`                               | Bearer                 | Change password.                            |
+| PUT / DELETE  | `/me/avatar`                                 | Bearer                 | Upload/remove avatar (`200`).               |
+| GET           | `/me/summary`                                | Bearer                 | Learning summary.                           |
+| DELETE        | `/me`                                        | Bearer                 | Account and data deletion.                  |
+| POST          | `/notifications/signups`                     | Public/optional Bearer | Idempotent notification signup.             |
+| POST          | `/notifications/topics`                      | Public/optional Bearer | Topic request.                              |
 
-La mayoría de estas rutas devuelven `200`; creación de comentarios `201`. El cuerpo y los campos
-se validan con los schemas de cada feature. Los dos POST de notificaciones responden `200` sin
-`data`, incluso si ya existía la fila.
+Most routes return `200`; comment creation returns `201`. Bodies and fields are validated by feature schemas. Both notification POSTs return `200` without `data`, including when a signup row already exists.
 
-## Rutas de administración
+## Administration routes
 
-| Método               | Ruta                                        | Resultado / error distintivo                                                                                                                        |
-| -------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET / POST           | `/admin/courses`                            | lista y contadores / crea borrador (`201`)                                                                                                          |
-| GET / PATCH          | `/admin/courses/:id`                        | editor y temario / autoguardado con `expected_updated_at`; `STALE_UPDATE`, `SLUG_LOCKED`, `SLUG_TAKEN`                                              |
-| POST                 | `/admin/courses/:id/publish`                | publica; `COURSE_HAS_NO_LESSONS`                                                                                                                    |
-| POST                 | `/admin/courses/:id/unpublish`              | vuelve a borrador                                                                                                                                   |
-| POST                 | `/admin/courses/:id/duplicate`              | copia curso, lecciones y recursos (`201`)                                                                                                           |
-| POST                 | `/admin/courses/:id/archive`                | retira sin borrar progreso                                                                                                                          |
-| PUT                  | `/admin/courses/order`                      | lista completa de ids; `STALE_CATALOG_ORDER`                                                                                                        |
-| PUT                  | `/admin/courses/:id/cover`                  | portada multipart `file`; `IMAGE_TOO_SMALL`                                                                                                         |
-| GET / POST           | `/admin/courses/:course_id/lessons`         | temario interno / agrega borrador (`201`)                                                                                                           |
-| PUT                  | `/admin/courses/:course_id/lessons/order`   | lista completa de ids; `LESSON_ORDER_MISMATCH`                                                                                                      |
-| GET / PATCH / DELETE | `/admin/lessons/:id`                        | detalle / editor / borrado con confirmación cuando hay datos de alumnos                                                                             |
-| POST / DELETE        | `/admin/lessons/:id/publish`                | publica / despublica                                                                                                                                |
-| POST                 | `/admin/lessons/:lesson_id/resources`       | sube adjunto multipart `file` y `title` (`201`)                                                                                                     |
-| PATCH / DELETE       | `/admin/lessons/:lesson_id/resources/:id`   | renombra / quita recurso                                                                                                                            |
-| PUT                  | `/admin/lessons/:lesson_id/resources/order` | orden de recursos                                                                                                                                   |
-| POST                 | `/admin/videos/probe`                       | `{provider, external_id}`; Vimeo devuelve duración, YouTube devuelve `duration_seconds: null` y exige duración manual en `PATCH /admin/lessons/:id` |
-| GET                  | `/admin/comments`                           | pestañas `recent`, `reported`, `hidden`, paginadas                                                                                                  |
-| GET                  | `/admin/comments/counts`                    | `pending` y `reported`                                                                                                                              |
-| POST                 | `/admin/comments/:id/replies`               | respuesta del equipo (`201`)                                                                                                                        |
-| PATCH                | `/admin/comments/:id/status`                | `VISIBLE` / `HIDDEN`; revisa reportes                                                                                                               |
-| DELETE               | `/admin/comments/:id`                       | borrado lógico                                                                                                                                      |
-| GET                  | `/admin/users`                              | directorio con filtros, stats y paginación                                                                                                          |
-| GET                  | `/admin/users/export`                       | CSV de lo filtrado, sin paginar; `EXPORT_TOO_LARGE`                                                                                                 |
-| GET                  | `/admin/notifications/signups`              | lista de avisos                                                                                                                                     |
-| GET                  | `/admin/notifications/signups/export`       | CSV de avisos                                                                                                                                       |
-| POST                 | `/admin/notifications/signups/notify`       | marca las filas anteriores al corte                                                                                                                 |
-| GET                  | `/admin/notifications/topics`               | temas agrupados                                                                                                                                     |
-| DELETE               | `/admin/notifications/subscribers?email=…`  | olvida la dirección (`204`)                                                                                                                         |
+| Method               | Route                                       | Result / distinctive error                                                                                            |
+| -------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| GET / POST           | `/admin/courses`                            | List/counts or create draft (`201`).                                                                                  |
+| GET / PATCH          | `/admin/courses/:id`                        | Editor/syllabus or autosave with `expected_updated_at`; `STALE_UPDATE`, `SLUG_LOCKED`, `SLUG_TAKEN`.                  |
+| POST                 | `/admin/courses/:id/publish`                | Publish; `COURSE_HAS_NO_LESSONS`.                                                                                     |
+| POST                 | `/admin/courses/:id/unpublish`              | Return to draft.                                                                                                      |
+| POST                 | `/admin/courses/:id/duplicate`              | Copy course, lessons, and resources (`201`).                                                                          |
+| POST                 | `/admin/courses/:id/archive`                | Remove from catalog without deleting progress.                                                                        |
+| PUT                  | `/admin/courses/order`                      | Complete ID list; `STALE_CATALOG_ORDER`.                                                                              |
+| PUT                  | `/admin/courses/:id/cover`                  | Multipart `file` cover; `IMAGE_TOO_SMALL`.                                                                            |
+| GET / PUT            | `/admin/courses/:id/exam`                   | Read/save versioned exam configuration.                                                                               |
+| GET                  | `/admin/teachers`                           | Reusable teacher profiles.                                                                                            |
+| GET / POST           | `/admin/courses/:course_id/lessons`         | Internal syllabus or add draft (`201`).                                                                               |
+| PUT                  | `/admin/courses/:course_id/lessons/order`   | Complete IDs; `LESSON_ORDER_MISMATCH`.                                                                                |
+| GET / PATCH / DELETE | `/admin/lessons/:id`                        | Details, editing, or deletion requiring confirmation when student data exists.                                        |
+| POST / DELETE        | `/admin/lessons/:id/publish`                | Publish/unpublish.                                                                                                    |
+| POST                 | `/admin/lessons/:lesson_id/resources`       | Multipart `file` and `title` attachment (`201`).                                                                      |
+| PATCH / DELETE       | `/admin/lessons/:lesson_id/resources/:id`   | Rename/remove resource.                                                                                               |
+| PUT                  | `/admin/lessons/:lesson_id/resources/order` | Resource ordering.                                                                                                    |
+| POST                 | `/admin/videos/probe`                       | `{provider, external_id}`; Vimeo returns duration, YouTube returns null and requires manual duration in lesson PATCH. |
+| GET                  | `/admin/comments`                           | Paginated `recent`, `reported`, `hidden` tabs.                                                                        |
+| GET                  | `/admin/comments/counts`                    | `pending` and `reported`.                                                                                             |
+| POST                 | `/admin/comments/:id/replies`               | Team reply (`201`).                                                                                                   |
+| PATCH                | `/admin/comments/:id/status`                | `VISIBLE` / `HIDDEN`; reviews reports.                                                                                |
+| DELETE               | `/admin/comments/:id`                       | Logical deletion.                                                                                                     |
+| GET                  | `/admin/users`                              | Filtered directory, global stats, and pagination.                                                                     |
+| GET                  | `/admin/users/export`                       | Filtered unpaginated CSV; `EXPORT_TOO_LARGE`.                                                                         |
+| GET                  | `/admin/notifications/signups`              | Notification signups.                                                                                                 |
+| GET                  | `/admin/notifications/signups/export`       | Signup CSV.                                                                                                           |
+| POST                 | `/admin/notifications/signups/notify`       | Mark rows up to a cutoff.                                                                                             |
+| GET                  | `/admin/notifications/topics`               | Grouped topics.                                                                                                       |
+| DELETE               | `/admin/notifications/subscribers?email=…`  | Forget address (`204`).                                                                                               |
 
-Las descargas CSV son la excepción al sobre JSON: éxito en CSV UTF-8 con BOM, error en el sobre
-estándar. Todas las demás rutas de la tabla usan `authenticateTokenJwt` y `requireAdmin`.
+CSV downloads return UTF-8 with BOM on success and the standard JSON envelope on error. All administrative routes use `authenticateTokenJwt` and `requireAdmin`.
 
-## 1. El sobre
+## 1. Envelope
 
-Las respuestas JSON de negocio, incluidos los errores, usan
-[buildHttpResponse](../src/utils/build_http_response.ts). CSV, redirecciones, archivos, `/ping`
-y respuestas 204 tienen su transporte específico:
+Business JSON responses, including errors, use [buildHttpResponse](../src/utils/build_http_response.ts). CSV, redirects, files, `/ping`, and `204` use their specific transports:
 
 ```jsonc
 {
@@ -97,16 +85,14 @@ y respuestas 204 tienen su transporte específico:
   "description": "Sesión iniciada correctamente",
   "timestamp": "2026-08-21T00:30:45.366Z",
   "path": "/api/v1/auth/login",
-  "data": {}, // solo si el endpoint devuelve algo
-  "meta": {}, // solo si hay código, campos o espera
+  "data": {}, // only when the endpoint returns a payload
+  "meta": {}, // only when codes, fields, or retry information apply
 }
 ```
 
-`data` y `meta` **se omiten** cuando no aplican; no llegan como `null`. `description` es texto
-para humanos y cambia con el idioma: el frontend nunca lo compara — para ramificar está
-`meta.code`.
+`data` and `meta` are **omitted** when inapplicable, not set to null. `description` is human-readable copy, currently supplied by backend message constants; clients must not compare it. Use stable `meta.code` for branching.
 
-## 2. Modelo de usuario
+## 2. User model
 
 ```jsonc
 {
@@ -125,51 +111,38 @@ para humanos y cambia con el idioma: el frontend nunca lo compara — para ramif
 }
 ```
 
-`id` es un **cuid**, sin prefijo de recurso ([users.prisma](../prisma/schema/users.prisma)). Las fechas son ISO
-8601 con `Z`. **`password_hash` no aparece nunca**: lo impiden dos barreras independientes, el
-`select` explícito de los repositorios y la lista campo a campo de `toApiUser`
-([user_mapper.ts](../src/modules/auth/shared/domain/user_mapper.ts)).
+`id` is a **cuid** without a resource prefix ([users.prisma](../prisma/schema/users.prisma)). Dates use ISO 8601 with `Z`. **`password_hash` is never exposed**: explicit repository selects and the field-by-field `toApiUser` allowlist provide independent barriers ([user_mapper.ts](../src/modules/auth/shared/domain/user_mapper.ts)).
 
-## 3. Sesión
+## 3. Session
 
 ```jsonc
-{ "token": "eyJhbGciOi…", "expires_at": "2026-09-20T00:29:58.028Z", "user": {/* §2 */} }
+{ "token": "eyJhbGciOi…", "expires_at": "2026-09-20T00:29:58.028Z", "user": {/* section 2 */} }
 ```
 
-El JWT lleva `sub`, `jti`, `role`, `iat`, `exp` e `iss`, firmado HS256
-([sign_session_token.ts](../src/infrastructure/jwt/sign_session_token.ts)). **La base de datos es la autoridad**: cada
-petición con autenticación obligatoria comprueba la fila de `auth_sessions` del `jti`
-([authenticate_token_jwt.ts](../src/middlewares/authenticate_token_jwt.ts)) y empuja `expires_at` como mucho una vez cada
-5 minutos por sesión (`AuthPolicy.session_sliding_renewal_seconds`). Las rutas con
-autenticación opcional validan la sesión sin renovar esa ventana.
+JWTs contain `sub`, `jti`, `role`, `iat`, `exp`, and `iss`, signed with HS256 ([sign_session_token.ts](../src/infrastructure/jwt/sign_session_token.ts)). **The database is authoritative**: required authentication checks the `auth_sessions` row identified by `jti` ([authenticate_token_jwt.ts](../src/middlewares/authenticate_token_jwt.ts)) and renews `expires_at` at most once every five minutes per session (`AuthPolicy.session_sliding_renewal_seconds`). Optional authentication validates without renewing.
 
-| `remember_me`    | Inactividad tolerada |
-| ---------------- | -------------------- |
-| `true` (default) | 30 días              |
-| `false`          | 12 horas             |
+| `remember_me`    | Allowed inactivity |
+| ---------------- | ------------------ |
+| `true` (default) | 30 days            |
+| `false`          | 12 hours           |
 
-`expires_at` de la respuesta es esa caducidad por inactividad. El **`exp` del token es otra fecha**:
-el tope absoluto de la sesión, 180 días desde que se abrió
-(`AuthTokenTtlSeconds.session_absolute_max`). Son distintas porque el `expires_at` de la fila se
-mueve con cada uso y un JWT firmado no; firmar el `exp` con la fecha deslizante expulsaba al
-usuario activo a los 30 días de haber entrado. Pasado el tope absoluto hay que volver a iniciar
-sesión, se haya usado o no.
+Response `expires_at` is the inactivity expiration. Token **`exp` is a different date**: the absolute 180-day cap from session creation (`AuthTokenTtlSeconds.session_absolute_max`). Rows can slide while signed JWTs cannot. Using the initial sliding date for token expiration previously evicted active users after 30 days. At the absolute cap, sign-in is required again regardless of activity.
 
-## 4. Los 11 endpoints
+## 4. The 11 authentication endpoints
 
-| #   | Método | Ruta                    | Auth    | Límite                                     | Éxito                             |
-| --- | ------ | ----------------------- | ------- | ------------------------------------------ | --------------------------------- |
-| 1   | `POST` | `/auth/register`        | pública | 5/h por IP                                 | `201` + sesión                    |
-| 2   | `POST` | `/auth/login`           | pública | 30/15 min por IP · 10/15 min por IP+correo | `200` + sesión                    |
-| 3   | `POST` | `/auth/logout`          | Bearer  | —                                          | `200` sin `data`                  |
-| 4   | `GET`  | `/auth/me`              | Bearer  | —                                          | `200` + `{ user }`                |
-| 5   | `POST` | `/auth/password/forgot` | pública | 5/h IP · 3/h correo                        | `200` sin `data`                  |
-| 6   | `POST` | `/auth/password/reset`  | pública | 20/h por IP                                | `200` sin `data`                  |
-| 7   | `POST` | `/auth/email/verify`    | pública | 20/h por IP                                | `200` sin `data`                  |
-| 8   | `POST` | `/auth/email/resend`    | Bearer  | 5/h por usuario + 45 s                     | `200` + `{ retry_after_seconds }` |
-| 9   | `GET`  | `/auth/google`          | pública | —                                          | `302` a Google                    |
-| 10  | `GET`  | `/auth/google/callback` | pública | —                                          | `302` al frontend                 |
-| 11  | `POST` | `/auth/google/exchange` | pública | 20/h por IP                                | `200` + sesión                    |
+| #   | Method | Route                   | Auth   | Limit                                    | Success                           |
+| --- | ------ | ----------------------- | ------ | ---------------------------------------- | --------------------------------- |
+| 1   | POST   | `/auth/register`        | Public | 5/hour per IP                            | `201` + session                   |
+| 2   | POST   | `/auth/login`           | Public | 30/15 min per IP; 10/15 min per IP+email | `200` + session                   |
+| 3   | POST   | `/auth/logout`          | Bearer | —                                        | `200` without `data`              |
+| 4   | GET    | `/auth/me`              | Bearer | —                                        | `200` + `{ user }`                |
+| 5   | POST   | `/auth/password/forgot` | Public | 5/hour per IP; 3/hour per email          | `200` without `data`              |
+| 6   | POST   | `/auth/password/reset`  | Public | 20/hour per IP                           | `200` without `data`              |
+| 7   | POST   | `/auth/email/verify`    | Public | 20/hour per IP                           | `200` without `data`              |
+| 8   | POST   | `/auth/email/resend`    | Bearer | 5/hour per user + 45 seconds             | `200` + `{ retry_after_seconds }` |
+| 9   | GET    | `/auth/google`          | Public | —                                        | `302` to Google                   |
+| 10  | GET    | `/auth/google/callback` | Public | —                                        | `302` to frontend                 |
+| 11  | POST   | `/auth/google/exchange` | Public | 20/hour per IP                           | `200` + session                   |
 
 ### 1 · `POST /auth/register` → `201`
 
@@ -177,25 +150,15 @@ sesión, se haya usado o no.
 {
   "full_name": "María Quispe Rojas",
   "email": "maria@estudioqp.pe",
-  "password": "unaClaveLarga", // mínimo 8, máximo 128
+  "password": "aLongExamplePassword", // 8–128 characters
 }
 ```
 
-El alta solo requiere nombre, correo y contraseña. `organization`, `is_independent`, `city`
-y `city_other` siguen siendo aceptados como datos opcionales. Si se omiten, la cuenta se crea
-sin organización ni ciudad escrita, con `is_independent: false` y `city: "OTHER"`. Si el cliente
-envía explícitamente `city: "OTHER"`, `city_other` sigue siendo obligatorio.
+Only name, email, and password are required. `organization`, `is_independent`, `city`, and `city_other` remain optional. Omitted values create an account without organization/written city, `is_independent: false`, and `city: "OTHER"`. Explicit `city: "OTHER"` still requires `city_other`.
 
-`data: { token, expires_at, user, verification_email_sent }` con la sesión ya abierta y `remember_me: true`
-([register.service.ts](../src/modules/auth/features/registration/register/presentation/register.service.ts)). `email` se normaliza a minúsculas y sin espacios; `role` y
-`email_verified_at` del cuerpo **se descartan** (no están en el schema).
+Returns `data: { token, expires_at, user, verification_email_sent }` with an open session and `remember_me: true` ([register.service.ts](../src/modules/auth/features/registration/register/presentation/register.service.ts)). Email is lowercased/trimmed; body `role` and `email_verified_at` are **discarded** because they are absent from the schema.
 
-El correo de verificación se manda en la misma petición y **su fallo no rompe el registro**: la
-cuenta y la sesión se devuelven igual, `verification_email_sent` vale `false` y el fallo va al log con `SystemMessages.email_failed`
-([register.service.ts](../src/modules/auth/features/registration/register/presentation/register.service.ts)). Es la decisión D-002: sin cola, un SMTP caído no puede costar una
-cuenta.
-
-Errores: `409 EMAIL_ALREADY_REGISTERED`, `422 VALIDATION_ERROR`, `429 RATE_LIMITED`.
+Verification email is sent within the request, and **delivery failure does not break registration**. Account/session still return, `verification_email_sent` becomes false, and `SystemMessages.email_failed` is logged. This is D-002: without a queue, an SMTP outage must not cost an account. Errors: `409 EMAIL_ALREADY_REGISTERED`, `422 VALIDATION_ERROR`, `429 RATE_LIMITED`.
 
 ### 2 · `POST /auth/login` → `200`
 
@@ -203,113 +166,84 @@ Errores: `409 EMAIL_ALREADY_REGISTERED`, `422 VALIDATION_ERROR`, `429 RATE_LIMIT
 { "email": "maria@estudioqp.pe", "password": "…", "remember_me": true }
 ```
 
-**Correo inexistente y contraseña incorrecta devuelven exactamente la misma respuesta**
-(`401 INVALID_CREDENTIALS`, mismo `description`, mismo `meta`), y el camino "no existe" ejecuta
-igualmente un `verify` de argon2 contra un hash señuelo para no filtrar la diferencia por tiempo
-([login.service.ts](../src/modules/auth/features/email_login/login/presentation/login.service.ts)). Única excepción: una cuenta creada con Google que aún no tiene
-contraseña recibe `409 ACCOUNT_USES_GOOGLE`.
+**Unknown email and wrong password return the same response** (`401 INVALID_CREDENTIALS`, identical description/meta). The unknown-account path still performs Argon2 verification against a dummy hash to reduce timing disclosure ([login.service.ts](../src/modules/auth/features/email_login/login/presentation/login.service.ts)). A Google-created account without a password is the explicit exception: `409 ACCOUNT_USES_GOOGLE`.
 
-La contraseña se valida aquí con `min(1)`, no con `min(8)`: aplicar la política de registro
-convertiría el intento en un `422` y delataría la longitud.
+Password validation uses `min(1)`, not `min(8)`; applying registration policy would turn the attempt into a length-revealing `422`.
 
 ### 3 · `POST /auth/logout` → `200`
 
-Sin cuerpo. La sesión que se cierra es el `jti` del token, nunca un `session_id` del cuerpo.
-**Idempotente de verdad**: el segundo `POST` con el mismo token responde `200` con
-`description: "La sesión ya estaba cerrada"`, porque esta ruta —y solo ésta— usa
-`authenticateRevocableSession` ([logout.routes.ts](../src/modules/auth/features/session/logout/presentation/logout.routes.ts)). Sigue rechazando firma inválida, `jti`
-inexistente y sesión **caducada**.
+No body. The closed session is the token's `jti`, never a body-supplied `session_id`. Repeating the POST with the same token returns `200` and `description: "La sesión ya estaba cerrada"`, because only this route uses `authenticateRevocableSession` ([logout.routes.ts](../src/modules/auth/features/session/logout/presentation/logout.routes.ts)). Invalid signatures, unknown `jti`, and expired sessions are still rejected.
 
 ### 4 · `GET /auth/me` → `200`
 
-`data: { user }`. Es la llamada que sostiene el guard del frontend. Errores: `401 UNAUTHENTICATED`
-(sin Bearer o mal formado), `401 SESSION_EXPIRED` (sesión revocada o vencida), `404 NOT_FOUND`.
+Returns `data: { user }`, supporting the frontend guard. Errors: `401 UNAUTHENTICATED` for absent/malformed Bearer, `401 SESSION_EXPIRED` for revoked/expired sessions, and `404 NOT_FOUND`.
 
 ### 5 · `POST /auth/password/forgot` → `200`
 
 ```jsonc
-{ "email": "maria@estudioqp.pe", "redirect_to": "/curso/fundamentos" } // redirect_to opcional
+{ "email": "maria@estudioqp.pe", "redirect_to": "/curso/fundamentos" } // optional redirect_to
 ```
 
-**Responde `200` exista o no el correo**, con el mismo texto y un suelo de tiempo de 400 ms
-(`AuthPolicy.password_forgot_min_response_ms`). El enlace vence en 1 hora, es de un solo uso, y
-emitir uno nuevo invalida el anterior.
+Returns `200` whether the email exists, with identical copy and a 400 ms floor (`AuthPolicy.password_forgot_min_response_ms`). The single-use link expires after one hour; issuing another invalidates the previous link.
 
 ### 6 · `POST /auth/password/reset` → `200`
 
 ```jsonc
-{ "token": "…", "password": "nuevaClaveLarga" }
+{ "token": "…", "password": "aNewLongExamplePassword" }
 ```
 
-En una sola transacción: consume el token, cambia el hash, marca el correo como verificado si no lo
-estaba y **revoca todas las sesiones del usuario** ([reset.repository.ts](../src/modules/auth/features/password_reset/reset/data/reset.repository.ts)). Token inválido,
-vencido o ya usado → `400 TOKEN_INVALID`.
+One transaction consumes the token, changes the hash, verifies email if needed, and **revokes every user session** ([reset.repository.ts](../src/modules/auth/features/password_reset/reset/data/reset.repository.ts)). Invalid, expired, or used token: `400 TOKEN_INVALID`.
 
 ### 7 · `POST /auth/email/verify` → `200`
 
-`{ "token": "…" }`. Idempotente: el segundo clic responde `200` con
-`meta.code: "EMAIL_ALREADY_VERIFIED"`. Ningún `data`: el token viaja en un correo y devolver el
-perfil entregaría el usuario a quien tenga el enlace.
+Accepts `{ "token": "…" }`. A repeated click returns `200` with `meta.code: "EMAIL_ALREADY_VERIFIED"`. No `data` is returned: the token travels in email, and returning a profile would disclose the user to anyone holding the link.
 
 ### 8 · `POST /auth/email/resend` → `200`
 
-Sin cuerpo (se acepta `{}` o nada). `data: { retry_after_seconds: 45 }` para que la UI arranque su
-cuenta atrás. Antes de tiempo → `429 RESEND_COOLDOWN` con `meta.retry_after_seconds` (los segundos
-que faltan, no la ventana). Un correo ya verificado responde `200` con
-`meta.code: "EMAIL_ALREADY_VERIFIED"` y `data.retry_after_seconds: 0`, **sin** mandar correo.
+No body (`{}` or none accepted). Returns `data: { retry_after_seconds: 45 }` for the UI countdown. Too early: `429 RESEND_COOLDOWN` with remaining seconds in `meta.retry_after_seconds`, not the whole window. Already-verified email returns `200`, `EMAIL_ALREADY_VERIFIED`, and `data.retry_after_seconds: 0` without sending email.
 
 ### 9–11 · Google
 
 ```text
 GET  /auth/google?redirect_to=/curso/x
-     → 302 a accounts.google.com; redirect_to viaja firmado (HMAC-SHA256) dentro del state
-     → Set-Cookie: arxatec_oauth_state=<nonce>; HttpOnly; SameSite=Lax  (ata el state al navegador)
-GET  /auth/google/callback?code=…&state=…   (con esa cookie, o 400 TOKEN_INVALID)
-     → 302 a ${FRONTEND_URL}/oauth/callback?code=<código de un solo uso>&redirect_to=…
+     → 302 to accounts.google.com; redirect_to is HMAC-SHA256 signed inside state
+     → Set-Cookie: arxatec_oauth_state=<nonce>; HttpOnly; SameSite=Lax (binds state to browser)
+GET  /auth/google/callback?code=…&state=…   (with that cookie, otherwise 400 TOKEN_INVALID)
+     → 302 to ${FRONTEND_URL}/oauth/callback?code=<single-use-code>&redirect_to=…
 POST /auth/google/exchange { "code": "…" }
      → 200 { token, expires_at, user }
 ```
 
-El código intermedio es opaco, se guarda hasheado, **vive 60 s y es de un solo uso**: un JWT en la
-URL quedaría en el historial, en el `Referer` y en los logs de cualquier proxy.
+The intermediate opaque code is hashed, lasts **60 seconds**, and is single-use. A JWT in the URL would enter browser history, Referer headers, and proxy logs.
 
-Dos comportamientos que **no** están en el contrato y conviene conocer:
+Additional behavior:
 
-1. Si Google **no** declara verificado el correo y ya existe una cuenta con él, el enlace se
-   **rechaza** con `400 TOKEN_INVALID` ([callback.service.ts](../src/modules/auth/features/google_login/callback/presentation/callback.service.ts)). Sin esa comprobación, quien
-   consiga que el proveedor afirme un correo ajeno entra en la cuenta de otro.
-2. La cuenta creada con Google queda con `city: "OTHER"` y `city_other: null`, porque `users.city`
-   es obligatoria y Google no da ciudad. El registro por correo usa los mismos valores cuando
-   no se proporciona ciudad; el formulario de perfil solo permite actualizar el nombre.
+1. If Google does not mark the email verified and an account already uses it, linking is rejected with `400 TOKEN_INVALID` ([callback.service.ts](../src/modules/auth/features/google_login/callback/presentation/callback.service.ts)). This prevents unverified provider assertions from accessing another account.
+2. Google accounts use `city: "OTHER"`, `city_other: null`: city is required, but Google supplies none. Email registration uses the same defaults when city is omitted. Profile updates permit only the name.
 
-## 5. Códigos de error (`meta.code`)
+## 5. Error codes (`meta.code`)
 
-El frontend ramifica por este código estable. Esta tabla cubre autenticación; §18 amplía
-los errores de contenido, archivos y administración.
+Clients branch on stable codes. This table covers authentication; section 18 adds content, file, and administrative errors.
 
-| HTTP | `meta.code`                | Cuándo                                                                                                                          | Dónde se lanza                                                                                                                                                                                                                                                                                                                                |
-| ---- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 400  | `TOKEN_INVALID`            | token de verificación/reset/canje inválido, caducado o usado; `state` de Google manipulado, vencido o sin la cookie de su nonce | [verify.service.ts](../src/modules/auth/features/email_verification/verify/presentation/verify.service.ts), [reset.service.ts](../src/modules/auth/features/password_reset/reset/presentation/reset.service.ts), [exchange.service.ts](../src/modules/auth/features/google_login/exchange/presentation/exchange.service.ts), `oauth_state.ts` |
-| 401  | `INVALID_CREDENTIALS`      | login con correo o contraseña incorrectos                                                                                       | [login.service.ts](../src/modules/auth/features/email_login/login/presentation/login.service.ts)                                                                                                                                                                                                                                              |
-| 401  | `UNAUTHENTICATED`          | falta el Bearer, está mal formado o la firma no valida                                                                          | [authenticate_token_jwt.ts](../src/middlewares/authenticate_token_jwt.ts), [verify_session_token.ts](../src/infrastructure/jwt/verify_session_token.ts)                                                                                                                                                                                       |
-| 401  | `SESSION_EXPIRED`          | sesión revocada, vencida o inexistente                                                                                          | [authenticate_token_jwt.ts](../src/middlewares/authenticate_token_jwt.ts)                                                                                                                                                                                                                                                                     |
-| 403  | `EMAIL_NOT_VERIFIED`       | acción que exige correo verificado: escribir un comentario o una respuesta (fase 12)                                            | `assertVerifiedEmail` ([authenticated_user.ts](../src/utils/authenticated_user.ts)), montado por [require_verified_email.ts](../src/middlewares/require_verified_email.ts)                                                                                                                                                                    |
-| 404  | `NOT_FOUND`                | usuario inexistente · ruta inexistente                                                                                          | [get_me.service.ts](../src/modules/auth/features/session/get_me/presentation/get_me.service.ts), [error_handler.ts](../src/middlewares/error_handler.ts)                                                                                                                                                                                      |
-| 409  | `EMAIL_ALREADY_REGISTERED` | registro con un correo ya usado                                                                                                 | [register.service.ts](../src/modules/auth/features/registration/register/presentation/register.service.ts)                                                                                                                                                                                                                                    |
-| 409  | `ACCOUNT_USES_GOOGLE`      | login con contraseña en una cuenta de Google                                                                                    | [login.service.ts](../src/modules/auth/features/email_login/login/presentation/login.service.ts)                                                                                                                                                                                                                                              |
-| 422  | `VALIDATION_ERROR`         | Zod rechazó la entrada                                                                                                          | [error_handler.ts](../src/middlewares/error_handler.ts)                                                                                                                                                                                                                                                                                       |
-| 429  | `RESEND_COOLDOWN`          | reenvío antes de los 45 s                                                                                                       | [resend.service.ts](../src/modules/auth/features/email_verification/resend/presentation/resend.service.ts)                                                                                                                                                                                                                                    |
-| 429  | `RATE_LIMITED`             | límite de peticiones                                                                                                            | [rate_limit.ts](../src/middlewares/rate_limit.ts)                                                                                                                                                                                                                                                                                             |
-| 500  | `INTERNAL_ERROR`           | fallo no controlado                                                                                                             | [error_handler.ts](../src/middlewares/error_handler.ts)                                                                                                                                                                                                                                                                                       |
-| 200  | `EMAIL_ALREADY_VERIFIED`   | correo ya verificado (verify y resend)                                                                                          | [verify.controller.ts](../src/modules/auth/features/email_verification/verify/presentation/verify.controller.ts), [resend.controller.ts](../src/modules/auth/features/email_verification/resend/presentation/resend.controller.ts)                                                                                                            |
+| HTTP | `meta.code`                | Condition                                                                                                     | Source                                                                                                                                                                                                                                                                                                        |
+| ---- | -------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 400  | `TOKEN_INVALID`            | Invalid/expired/used verification/reset/exchange token; invalid/expired Google state or missing nonce cookie. | [verify](../src/modules/auth/features/email_verification/verify/presentation/verify.service.ts), [reset](../src/modules/auth/features/password_reset/reset/presentation/reset.service.ts), [exchange](../src/modules/auth/features/google_login/exchange/presentation/exchange.service.ts), `oauth_state.ts`. |
+| 401  | `INVALID_CREDENTIALS`      | Wrong email or password.                                                                                      | [login](../src/modules/auth/features/email_login/login/presentation/login.service.ts).                                                                                                                                                                                                                        |
+| 401  | `UNAUTHENTICATED`          | Missing/malformed Bearer or invalid signature.                                                                | [authentication](../src/middlewares/authenticate_token_jwt.ts), [JWT verification](../src/infrastructure/jwt/verify_session_token.ts).                                                                                                                                                                        |
+| 401  | `SESSION_EXPIRED`          | Revoked, expired, or absent session.                                                                          | [authentication](../src/middlewares/authenticate_token_jwt.ts).                                                                                                                                                                                                                                               |
+| 403  | `EMAIL_NOT_VERIFIED`       | Posting a public comment/reply requires verified email.                                                       | `assertVerifiedEmail` in [authenticated_user](../src/utils/authenticated_user.ts), via [middleware](../src/middlewares/require_verified_email.ts).                                                                                                                                                            |
+| 404  | `NOT_FOUND`                | Missing user or route.                                                                                        | [get_me](../src/modules/auth/features/session/get_me/presentation/get_me.service.ts), [error handler](../src/middlewares/error_handler.ts).                                                                                                                                                                   |
+| 409  | `EMAIL_ALREADY_REGISTERED` | Registration with an existing email.                                                                          | [registration](../src/modules/auth/features/registration/register/presentation/register.service.ts).                                                                                                                                                                                                          |
+| 409  | `ACCOUNT_USES_GOOGLE`      | Password login for a Google account without a hash.                                                           | [login](../src/modules/auth/features/email_login/login/presentation/login.service.ts).                                                                                                                                                                                                                        |
+| 422  | `VALIDATION_ERROR`         | Zod rejects input.                                                                                            | [error handler](../src/middlewares/error_handler.ts).                                                                                                                                                                                                                                                         |
+| 429  | `RESEND_COOLDOWN`          | Resending before 45 seconds.                                                                                  | [resend](../src/modules/auth/features/email_verification/resend/presentation/resend.service.ts).                                                                                                                                                                                                              |
+| 429  | `RATE_LIMITED`             | Request limit exceeded.                                                                                       | [rate limit](../src/middlewares/rate_limit.ts).                                                                                                                                                                                                                                                               |
+| 500  | `INTERNAL_ERROR`           | Unhandled failure.                                                                                            | [error handler](../src/middlewares/error_handler.ts).                                                                                                                                                                                                                                                         |
+| 200  | `EMAIL_ALREADY_VERIFIED`   | Already verified for verify/resend.                                                                           | [verify controller](../src/modules/auth/features/email_verification/verify/presentation/verify.controller.ts), [resend controller](../src/modules/auth/features/email_verification/resend/presentation/resend.controller.ts).                                                                                 |
 
-> **`EMAIL_NOT_VERIFIED` sigue sin emitirlo ningún endpoint de auth, y desde la fase 12 ya no está
-> sin uso.** Lo emiten las dos rutas que escriben en un hilo de comentarios
-> (`POST /lessons/:id/comments` y `POST /comments/:id/replies`) a través del middleware
-> `requireVerifiedEmail`. Es el **único** sitio de todo el producto donde `email_verified_at`
-> importa (D-006): el catálogo, las lecciones, la inscripción y el progreso no lo miran.
+`EMAIL_NOT_VERIFIED` is not emitted by auth endpoints. Public thread-writing routes (`POST /lessons/:id/comments`, `POST /comments/:id/replies`) emit it through `requireVerifiedEmail`. These are the product operations requiring verified email (D-006); catalog, lessons, enrollment, and progress do not.
 
-El `422` añade el detalle por campo, que es lo que permite pintar el error donde está el problema:
+A `422` adds field details:
 
 ```jsonc
 "meta": {
@@ -322,87 +256,67 @@ El `422` añade el detalle por campo, que es lo que permite pintar el error dond
 }
 ```
 
-**`fields` lleva claves i18n, nunca texto**: el catálogo está en
-`src/constants/validation_keys.ts` y el manejador global degrada a `errors.validation.invalid`
-cualquier mensaje que no tenga forma de clave ([error_handler.ts](../src/middlewares/error_handler.ts)).
+**`fields` contains i18n keys, never visible copy.** The catalog is `src/constants/validation_keys.ts`; the global handler replaces non-key-shaped messages with `errors.validation.invalid` ([error handler](../src/middlewares/error_handler.ts)).
 
-## 6. Límites de peticiones
+## 6. Request limits
 
-La tabla de auth vive en `AuthRateLimits`, en [auth.ts](../src/constants/auth.ts).
-Al pasarse: `429` con `RATE_LIMITED` y cabecera `Retry-After`.
+Authentication limits live in `AuthRateLimits` in [auth.ts](../src/constants/auth.ts). Exceeding them returns `429 RATE_LIMITED` and `Retry-After`.
 
-`/auth/login` y `/auth/password/forgot` llevan **dos cubos cada uno**, uno por IP y otro por
-cuenta. El de cuenta para la fuerza bruta contra un correo concreto; el de IP para el barrido de
-contraseñas contra muchos correos, que un solo cubo compuesto (IP + correo) no frena.
+Login and password-forgot each use two buckets: one per IP and one account-oriented bucket. The account bucket limits targeted brute force; the IP bucket limits password spraying across emails, which one composite IP+email bucket would not stop.
 
-Los límites de progreso, comentarios, administración y avisos están en §19. Las dos rutas
-públicas que escriben un hilo comparten el mismo cubo por usuario, no cinco comentarios y cinco
-respuestas independientes.
+Section 19 lists progress, comment, administrative, and notification limits. The two public thread-writing routes share one per-user bucket, not five comments plus five independent replies.
 
-**Dos avisos honestos.** Los cubos están en memoria del proceso: con más de una instancia se
-multiplican por el número de procesos. Y el `Retry-After` que sale es la ventana completa (p. ej.
-3600 s), no lo que resta, porque `express-rate-limit` v8 ya no expone `req.rateLimit`.
+Buckets live in process memory, so multiple instances multiply effective limits. `Retry-After` reports the complete window (for example 3600 seconds), not the remaining time, because `express-rate-limit` v8 no longer exposes the previous `req.rateLimit` value used by this implementation.
 
 ## 7. `redirect_to`
 
-Siempre un path relativo que empieza por `/`. Se rechaza cualquier valor con esquema, `//`, host,
-barra invertida o caracteres de control ([safe_redirect.ts](../src/utils/safe_redirect.ts)): un
-`redirect_to=https://malo.pe` convertiría el login en un redirector abierto. La misma función pura
-valida en `forgot` y en el arranque de Google.
+Must be a relative path beginning with `/`. Schemes, `//`, hosts, backslashes, and control characters are rejected ([safe_redirect.ts](../src/utils/safe_redirect.ts)); accepting `https://evil.example` would create an open redirect. The same pure function validates password-forgot and Google startup destinations.
 
-## 8. Comprobación histórica de auth — 2026-08-21
+## 8. Historical auth verification — 2026-08-21
 
-El documento anterior registró estas llamadas a los 11 endpoints con `curl` contra el servidor real (`node dist/server.js`, PostgreSQL
-del `docker-compose.yml`, `EMAIL_TRANSPORT=log`) el 2026-08-21. Códigos obtenidos:
+The earlier document recorded calls to all 11 endpoints with `curl` against `node dist/server.js`, Compose PostgreSQL, and `EMAIL_TRANSPORT=log` on 2026-08-21. Results:
 
-| Llamada                                                | HTTP                             |
-| ------------------------------------------------------ | -------------------------------- |
-| `POST /auth/register`                                  | `201`                            |
-| `POST /auth/register` (correo repetido)                | `409`                            |
-| `POST /auth/register` (cuerpo inválido)                | `422`                            |
-| `GET /auth/me`                                         | `200`                            |
-| `GET /auth/me` (sin Bearer)                            | `401`                            |
-| `POST /auth/email/resend` (dentro del cooldown)        | `429`                            |
-| `POST /auth/email/resend` (pasados 45 s)               | `200`                            |
-| `POST /auth/email/verify`                              | `200`                            |
-| `POST /auth/email/verify` (segundo clic)               | `200` + `EMAIL_ALREADY_VERIFIED` |
-| `POST /auth/logout`                                    | `200`                            |
-| `POST /auth/logout` (segunda vez)                      | `200`                            |
-| `POST /auth/login`                                     | `200`                            |
-| `POST /auth/login` (clave incorrecta)                  | `401`                            |
-| `POST /auth/password/forgot`                           | `200`                            |
-| `POST /auth/password/forgot` (correo inexistente)      | `200`, respuesta idéntica        |
-| `POST /auth/password/reset`                            | `200`                            |
-| `POST /auth/password/reset` (token ya usado)           | `400`                            |
-| `GET /auth/me` (sesión revocada por el reset)          | `401 SESSION_EXPIRED`            |
-| `POST /auth/login` (contraseña nueva)                  | `200`                            |
-| `GET /auth/google`                                     | `302` a `accounts.google.com`    |
-| `GET /auth/google/callback` (state válido, code falso) | `500` — ver abajo                |
-| `GET /auth/google/callback` (state manipulado)         | `400 TOKEN_INVALID`              |
-| `GET /auth/google/callback` (sin `code` ni `state`)    | `422`                            |
-| `POST /auth/google/exchange` (código inexistente)      | `400 TOKEN_INVALID`              |
-| `POST /auth/google/exchange` (sin `code`)              | `422`                            |
+| Call                                       | HTTP                           |
+| ------------------------------------------ | ------------------------------ |
+| Register                                   | `201`                          |
+| Register duplicate email                   | `409`                          |
+| Register invalid body                      | `422`                          |
+| Current user                               | `200`                          |
+| Current user without Bearer                | `401`                          |
+| Resend during cooldown                     | `429`                          |
+| Resend after 45 seconds                    | `200`                          |
+| Verify email                               | `200`                          |
+| Verify again                               | `200 EMAIL_ALREADY_VERIFIED`   |
+| Sign out                                   | `200`                          |
+| Sign out again                             | `200`                          |
+| Sign in                                    | `200`                          |
+| Sign in with wrong password                | `401`                          |
+| Forgot password                            | `200`                          |
+| Forgot unknown email                       | `200`, identical response      |
+| Reset password                             | `200`                          |
+| Reuse reset token                          | `400`                          |
+| Current user after reset revoked session   | `401 SESSION_EXPIRED`          |
+| Sign in with new password                  | `200`                          |
+| Start Google                               | `302` to `accounts.google.com` |
+| Google callback with valid state/fake code | `500`, see below               |
+| Google callback with tampered state        | `400 TOKEN_INVALID`            |
+| Google callback without code/state         | `422`                          |
+| Exchange unknown Google code               | `400 TOKEN_INVALID`            |
+| Exchange without code                      | `422`                          |
 
-> **Limitación registrada en esa comprobación.** Con credenciales de desarrollo, Google
-> responde `invalid_client` al canjear el código y el fallo del proveedor sale como
-> `500 INTERNAL_ERROR` **en JSON, en la pestaña del navegador** — porque esta URL la abre el
-> navegador, no `fetch`. La alternativa, redirigir
-> a `${FRONTEND_URL}/oauth/callback?error=…`, requiere acordar y probar un parámetro de error con el frontend. La documentación no cambia
-> ese comportamiento ni afirma una nueva comprobación del proveedor.
+**Recorded limitation:** development Google credentials returned `invalid_client`; provider failure surfaced as JSON `500 INTERNAL_ERROR` in the browser tab because the browser navigates to this URL. Redirecting instead to `${FRONTEND_URL}/oauth/callback?error=…` requires an agreed/tested frontend error parameter. Documentation does not change that behavior or establish a new provider check. Current configuration permits log email only in tests; this table is historical evidence.
 
-## 9. Catálogo, ficha y lección
+## 9. Catalog, course details, and lessons
 
-`GET /courses` acepta topic/level repetidos o separados por coma y search hasta 120 caracteres.
-No pagina. Solo cursos PUBLISHED, ordenados editorialmente. search se normaliza sin acentos ni
-mayúsculas y filtra título/descripción corta. Resultado:
+`GET /courses` accepts repeated or comma-separated topic/level filters and search up to 120 characters. It is unpaginated, contains only PUBLISHED courses, and uses editorial order. Search normalizes case/accents and filters title/short description. Example `data`:
 
 ```jsonc
 {
   "courses": [
     {
       "slug": "fundamentos-de-legal-tech",
-      "title": "Fundamentos de Legal Tech",
-      "short_description": "Introducción al curso",
+      "title": "Legal Tech Fundamentals",
+      "short_description": "Course introduction",
       "topic": "FIRST_STEPS",
       "level": "INTRODUCTORY",
       "cover_image_url": null,
@@ -423,232 +337,128 @@ mayúsculas y filtra título/descripción corta. Resultado:
 }
 ```
 
-Es el contenido de data de un ejemplo, no un inventario de producción. Faceta de tema aplica
-nivel, la de nivel aplica tema y ambas omiten search y su propio filtro. ALL suma temas.
-Un vacío responde 200 con courses vacío y facetas completas.
+This is illustrative, not a production inventory. Topic facets apply level; level facets apply topic; both omit search and their own filter. ALL sums topics. Empty results return `200`, empty courses, and complete facets.
 
-`GET /courses/:slug` admite sesión opcional y devuelve `{ course, lessons }`. Course agrega
-descripción larga, video_count, article_count y published_at. Lessons incluye id, slug, título,
-descripción, tipo, posición, duración/minutos nullable, is_free_sample e is_unlocked. Los
-contadores solo consideran publicadas; duración total incluye minutos de artículo × 60.
+`GET /courses/:slug` supports optional sessions and returns `{ course, lessons }`. Course adds long description, `video_count`, `article_count`, and `published_at`. Lessons contain id, slug, title, description, type, position, nullable duration/reading minutes, `is_free_sample`, and `is_unlocked`. Counters include only published lessons; total duration includes article minutes × 60.
 
-`GET /courses/:course_slug/lessons/:lesson_slug` devuelve una de estas formas:
+`GET /courses/:course_slug/lessons/:lesson_slug` returns:
 
-| HTTP              | Condición                              | `data`                                            |
-| ----------------- | -------------------------------------- | ------------------------------------------------- |
-| 200               | Muestra gratuita o sesión activa       | lesson abierta, course y navigation               |
-| 403 LESSON_LOCKED | Publicada sin acceso                   | lesson de metadatos, course y lessons del temario |
-| 404 NOT_FOUND     | Curso/lección ausentes o no publicados | Sin contenido                                     |
+| HTTP              | Condition                            | `data`                                         |
+| ----------------- | ------------------------------------ | ---------------------------------------------- |
+| 200               | Free sample or active session        | Open lesson, course, and navigation.           |
+| 403 LESSON_LOCKED | Published but inaccessible           | Lesson metadata, course, and syllabus lessons. |
+| 404 NOT_FOUND     | Missing/unpublished course or lesson | No content.                                    |
 
-La abierta incluye video `{provider, external_id}` nullable, article_body, transcript,
-resources, updated_at y metadatos. Cada recurso tiene title/file_url/mime_type/size_bytes.
-La bloqueada no incluye esos cuatro campos de contenido. Navigation contiene previous/next
-nullable por slug/título y salta borradores. Correo verificado e inscripción no son requisitos
-de lectura. Un Bearer inválido se trata como anónimo en auth opcional.
+Open lessons include nullable video `{provider, external_id}`, `article_body`, `transcript`, `resources`, `updated_at`, and metadata. Resources contain title/file_url/mime_type/size_bytes. Locked responses omit the four content fields. Navigation contains nullable previous/next slug/title and skips drafts. Reading requires neither verified email nor enrollment. Invalid optional Bearer is treated as anonymous.
 
-Temas: FIRST_STEPS, LEGAL_ENGINEERING, APPLIED_AI, ARXATEC_PRODUCT. Niveles: INTRODUCTORY,
-INTERMEDIATE. Tipos: VIDEO, ARTICLE. Detalle en [cursos](planning/courses/README.md) y
-[lecciones](planning/lessons/README.md).
+Topics: FIRST_STEPS, LEGAL_ENGINEERING, APPLIED_AI, ARXATEC_PRODUCT. Levels: INTRODUCTORY, INTERMEDIATE. Types: VIDEO, ARTICLE. See [courses](planning/courses/README.md) and [lessons](planning/lessons/README.md).
 
-## 10. Inscripción y avance
+## 10. Enrollment and progress
 
-Todas estas rutas requieren Bearer; no correo verificado. El usuario se toma de la sesión.
+These routes require Bearer but not verified email; user identity comes from the session.
 
-| Ruta                                  | Body                                                   | `data`                                                    |
+| Route                                 | Body                                                   | `data`                                                    |
 | ------------------------------------- | ------------------------------------------------------ | --------------------------------------------------------- |
-| `POST /courses/:slug/enroll`          | Ninguno requerido                                      | `{ enrollment }`                                          |
+| `POST /courses/:slug/enroll`          | None required                                          | `{ enrollment }`                                          |
 | `PUT /lessons/:lesson_id/progress`    | `{ "last_position_seconds": 120, "completed": false }` | `{ progress }`                                            |
-| `POST /lessons/:lesson_id/complete`   | Ninguno requerido                                      | `{ mark: { lesson_id, completed_at, enrollment } }`       |
-| `DELETE /lessons/:lesson_id/complete` | Ninguno requerido                                      | `{ mark: { lesson_id, completed_at: null, enrollment } }` |
+| `POST /lessons/:lesson_id/complete`   | None required                                          | `{ mark: { lesson_id, completed_at, enrollment } }`       |
+| `DELETE /lessons/:lesson_id/complete` | None required                                          | `{ mark: { lesson_id, completed_at: null, enrollment } }` |
 | `GET /me/courses`                     | —                                                      | `{ in_progress, completed }`                              |
 
-Todas responden 200. Posición entera 0–86400; completed booleano opcional false. Progress contiene
-lesson_id, last_position_seconds, completed_at y updated_at. La posición solo avanza aunque
-lleguen eventos atrasados. completed=true ejecuta también el marcado de finalización.
+All return `200`. Position is an integer 0–86400; optional `completed` defaults false. Progress contains lesson_id, last_position_seconds, completed_at, and updated_at. Position only increases despite late events. `completed=true` also performs completion marking.
 
-Enrollment contiene course por slug/título, started_at, completed_at nullable,
-completed_lessons, lesson_count y next_lesson nullable por slug/título. Inscribirse repetido no
-duplica. Completar asegura inscripción y no reescribe una fecha ya sellada. Desmarcar limpia
-completed_at de la lección e inscripción, conservando posición; enrollment puede ser null.
+Enrollment includes course slug/title, started_at, nullable completed_at, completed_lessons, lesson_count, and nullable next_lesson slug/title. Repeated enrollment does not duplicate. Completion ensures enrollment without rewriting an existing closure date. Unmarking clears lesson/enrollment completed_at while preserving position; enrollment can be null.
 
-Mis cursos separa in_progress (curso, contadores y siguiente) y completed (curso, total y fecha),
-solo de cursos publicados. Añadir una lección puede devolver un curso a in_progress sin borrar
-su fecha anterior. Un curso sin publicadas no se considera terminado. Ver [progreso](planning/progress/README.md).
+My courses separates `in_progress` (course, counters, next lesson) and `completed` (course, total, date), for published courses only. New lessons may return a course to in_progress without erasing its earlier date. A course with no published lessons is not completed. See [progress](planning/progress/README.md).
 
-### Certificados de finalización
+### Certificates and exams
 
-Las inscripciones y ambas listas de Mis cursos incluyen `certificate_id` (UUID o null).
-Terminar las lecciones habilita el examen final; solo aprobarlo emite el certificado. El examen
-tiene exactamente 15 preguntas, cuatro opciones y una respuesta correcta por pregunta, con
-12 aciertos (80 %) como mínimo inicial configurable desde administración. Una nueva marca, un cambio de nombre/título o una lección nueva no
-modifica el certificado ya emitido. Eliminar la cuenta lo borra y su enlace deja de resolver.
+Enrollment and both My courses lists include nullable UUID `certificate_id`. Completing lessons unlocks the exam; only passing issues a certificate. Exams have exactly 15 questions, four options, and one correct option per question; the initial threshold is 12 correct (80%), configurable in administration. New marks, name/title changes, and new lessons do not alter issued certificates. Account deletion removes certificates and their links stop resolving.
 
-`GET /certificates/:id` es público y devuelve `data.certificate` con `id`, `recipient_name`,
-`course_title`, `completed_at`, `issued_at`, `verification_url` y `qr_code_data_url` (PNG data URL).
-No devuelve correos ni ids de usuario/curso. La URL utiliza `FRONTEND_URL` y `/certificados/:id`.
-`GET /certificates/:id/pdf` también es público y responde PDF adjunto con el mismo QR y enlace,
-sin sobre JSON. Ambas rutas deshabilitan caché HTTP. UUID desconocido: 404; formato inválido: 422.
-La descarga acepta `?language=es|en|pt` (es por defecto) y reproduce la tarjeta web con el mismo
-logo, tipografía, badge y composición. Un idioma no admitido devuelve 422. El alto se adapta al
-contenido y el PDF conserva una página, sin los controles de compartir de la interfaz.
-Ver [certificados](../src/modules/progress/features/certificates/docs/README.md).
+`GET /certificates/:id` is public and returns `data.certificate`: id, recipient_name, course_title, completed_at, issued_at, verification_url, and qr_code_data_url (PNG data URL). It exposes neither email nor user/course IDs. Verification URLs use `FRONTEND_URL` and `/certificados/:id`.
 
-`GET /admin/courses/:id/exam` y `PUT /admin/courses/:id/exam` requieren ADMIN. PUT acepta
-`expected_version` (0 al crear), `enabled`, `passing_score` y 15 `questions` con `text`, cuatro
-`options` distintas y `correct_option` (0–3). Devuelve `data.exam` con la versión nueva.
-El GET del alumno devuelve `data.exam` y solo muestra preguntas en estado `ready`, tras completar
-todas las lecciones publicadas. Nunca incluye `correct_option`. Los demás estados son `locked`,
-`unavailable` y `passed` (certificado existente).
+`GET /certificates/:id/pdf` is public and returns a PDF attachment with the same QR/link, without JSON envelope. Both routes disable HTTP caching. Unknown UUID: 404; invalid format: 422. PDF accepts `?language=es|en|pt` (default es) and reproduces the web card's logo, typography, badge, and composition. Unsupported language returns 422. Height adapts while preserving one page and omitting UI share controls. See [certificates](../src/modules/progress/features/certificates/docs/README.md).
 
-El POST de intentos acepta `{ version, answers: [0, ...] }` con 15 respuestas y rechaza campos
-extra; usa la identidad de la sesión y corrige en servidor. Devuelve `data.result` con `score`,
-`passed`, `passing_score`, `question_count` y `certificate_id` nullable. Está limitado a cinco
-envíos por minuto y usuario. Versión cambiada: `409 EXAM_CHANGED`; examen desactivado o sin
-configurar: `409 EXAM_UNAVAILABLE`; lecciones pendientes: `403 EXAM_LOCKED`. Respuestas sin
-caché HTTP. Intento aprobado y certificado se guardan juntos y los envíos repetidos conservan
-el certificado. Los certificados anteriores al examen siguen disponibles. Ver
-[exámenes](../src/modules/progress/features/exams/docs/README.md).
+`GET /admin/courses/:id/exam` and PUT require ADMIN. PUT accepts `expected_version` (0 on creation), `enabled`, `passing_score`, and 15 questions with `text`, four distinct `options`, and `correct_option` 0–3. It returns `data.exam` with the new version. Student GET returns `data.exam` and reveals questions only in `ready` after all published lessons are complete, never `correct_option`. Other states are `locked`, `unavailable`, and `passed` for an existing certificate.
 
-## 11. Hilos y reportes
+Attempt POST accepts `{ version, answers: [0, ...] }` with 15 answers and rejects extra fields. It uses session identity and server grading. Returns `data.result` with score, passed, passing_score, question_count, and nullable certificate_id. Limit: five submissions per minute per user. Changed version: `409 EXAM_CHANGED`; disabled/unconfigured: `409 EXAM_UNAVAILABLE`; pending lessons: `403 EXAM_LOCKED`. Responses disable HTTP caching. A passed attempt and certificate are saved together; repeated submissions preserve the certificate. Pre-exam certificates remain available. See [exams](../src/modules/progress/features/exams/docs/README.md).
 
-GET de comentarios devuelve `{ comments: [...] }` con raíces y replies visibles. Cada elemento
-contiene id, parent_id, body, created_at y author nullable. Author contiene full_name, avatar_url,
-affiliation e is_team; nunca correo. No hay paginación pública.
+## 11. Threads and reports
 
-Los POST de raíz/respuesta aceptan `{ "body": "Texto de la consulta" }`, recortado y de 1–2000
-caracteres, y devuelven 201 con `{ comment }`. El contenido se trata como texto plano. Requieren
-correo verificado. Responder a una respuesta devuelve 422; raíz oculta/no visible, 404.
+Comment GET returns `{ comments: [...] }` with visible roots/replies. Each has id, parent_id, body, created_at, and nullable author. Authors contain full_name, avatar_url, affiliation, and is_team, never email. There is no public pagination.
 
-Reportar acepta `{ "reason": "Motivo opcional" }`, máximo 280, o `{}`. Requiere sesión y devuelve
-200 sin data. El índice único evita varios reportes del mismo usuario para el comentario.
-Ocultar/borrar una raíz la retira junto con sus respuestas de la proyección pública.
-[Contrato de comunidad](planning/comments/README.md).
+Root/reply POST accepts `{ "body": "Question text" }`, trimmed, 1–2000 characters, returning `201 { comment }`. Content is plain text and requires verified email. Replying to a reply returns 422; hidden/nonvisible roots return 404.
 
-## 12. Perfil, contraseña, avatar y baja
+Reporting accepts `{ "reason": "Optional reason" }` up to 280 characters or `{}`. It requires a session and returns `200` without data. A unique index prevents repeated reports by one user/comment. Hiding/deleting a root removes its replies from public projections too. See [community](planning/comments/README.md).
 
-La lectura actual usa `GET /auth/me` con `{ user }`; `GET /me/profile` no está registrado.
-`PATCH /me/profile` recibe únicamente `{ "full_name": "Nombre completo" }`.
-El nombre se recorta y debe tener entre 2 y 120 caracteres. Organización, condición de
-independiente y ciudad no forman parte del contrato de actualización del perfil; si llegan
-en el cuerpo se ignoran. El usuario se identifica por la sesión. No permite cambiar correo,
-rol o verificación. Éxito: 200 con `{ user }`.
+## 12. Profile, password, avatar, and deletion
 
-`PATCH /me/password` recibe current_password no vacía y new_password de 8–128, distinta de la actual.
-Devuelve 200 con `{ revoked_sessions }`: revoca las otras, conserva la actual. Google sin hash
-responde 409 ACCOUNT_USES_GOOGLE y contraseña actual incorrecta, 401 INVALID_CREDENTIALS.
+Current reads use `GET /auth/me` returning `{ user }`; `GET /me/profile` is not registered. `PATCH /me/profile` accepts only `{ "full_name": "Full name" }`, trimmed, 2–120 characters. Organization, independent status, and city are not part of this update contract and are ignored if sent. Session identity determines the user. Email, role, and verification cannot be changed. Success: `200 { user }`.
 
-`PUT /me/avatar` envía un archivo multipart file JPEG/PNG hasta 2 MiB. `DELETE /me/avatar` lo
-quita. Ambas responden 200 con `{ user }`; quitar deja avatar_url null. `GET /me/summary` devuelve
-`{ member_since, completed_courses }`, contando fechas de cierre persistidas, no cursos al día.
+`PATCH /me/password` accepts nonempty current_password and new_password of 8–128 characters, different from the current password. Returns `200 { revoked_sessions }`, revoking other sessions while retaining the current one. Google without a hash returns `409 ACCOUNT_USES_GOOGLE`; wrong current password returns `401 INVALID_CREDENTIALS`.
 
-`DELETE /me` recibe `{ "password": "contraseña actual" }` si hay hash; para cuenta sin hash puede
-omitirse. Responde 204. Borra datos propios en transacción, incluidos comentarios propios, y
-puede retirar respuestas por cascada. No es una desactivación reversible. Detalle en
-[usuarios](planning/users/README.md).
+`PUT /me/avatar` accepts multipart JPEG/PNG `file` up to 2 MiB; DELETE removes it. Both return `200 { user }`; removal leaves avatar_url null. `GET /me/summary` returns `{ member_since, completed_courses }`, counting persisted closure dates rather than currently up-to-date courses.
 
-## 13. Administración de cursos
+`DELETE /me` accepts `{ "password": "current password" }` for password accounts; accounts without hashes may omit it. Returns 204. Owned data, including comments, is deleted transactionally; replies may cascade. This is not reversible deactivation. Owned avatars enter durable cleanup. See [users](planning/users/README.md).
 
-Los docentes se guardan en `teachers` y se reutilizan entre cursos. `GET /admin/teachers`
-(solo ADMIN) devuelve `{ teachers: [{ id, full_name, biography, photo_url }] }`.
-El `PATCH /admin/courses/:id` admite `teacher: { id?, full_name, biography, photo_url }`:
-sin id crea un docente; con id edita y asigna el existente; `null` quita la asignación.
-El guardado mantiene la comprobación de `expected_updated_at` en una transacción. La ficha
-pública `GET /courses/:slug` añade `course.teacher`, nulo o con los tres datos sin id.
+## 13. Course administration
 
-Listado devuelve `{ courses, counts }` sin paginación, con archivados al final. counts contiene
-total/published/draft/archived. Cada fila incluye id, título, slug, tema, nivel, status,
-lesson_count, published_lesson_count, catalog_order y updated_at.
+Teachers are stored in `teachers` and reused across courses. ADMIN-only `GET /admin/teachers` returns `{ teachers: [{ id, full_name, biography, photo_url }] }`. Course PATCH accepts `teacher: { id?, full_name, biography, photo_url }`: no id creates a teacher; id edits/assigns an existing one; null unassigns. Saving preserves transactional `expected_updated_at` checks. Public course GET adds nullable `course.teacher` with the three profile fields, without ID.
 
-Crear exige title (1–140), topic y level; descripciones son opcionales y vacías por defecto.
-Genera slug y DRAFT. Crear/duplicar responden 201 con `{ course, lessons }`. El detalle devuelve
-la misma forma, con datos de editor y campos slug_locked, can_publish y fechas. can_publish
-refleja el mínimo de lecciones publicadas; el comando valida descripciones aparte.
+Listing returns unpaginated `{ courses, counts }`, archived last. Counts include total/published/draft/archived. Rows include id, title, slug, topic, level, status, lesson_count, published_lesson_count, catalog_order, and updated_at.
+
+Creation requires title (1–140), topic, and level; descriptions default empty. It generates a slug and DRAFT state. Creation/duplication return `201 { course, lessons }`. Details use the same shape with editor data, slug_locked, can_publish, and dates. can_publish reflects the published-lesson minimum; the command validates descriptions separately.
 
 ```json
 {
   "expected_updated_at": "2026-10-16T12:00:00.000Z",
-  "title": "Fundamentos de Legal Tech",
-  "short_description": "Introducción al curso",
-  "long_description": "Descripción completa del curso"
+  "title": "Legal Tech Fundamentals",
+  "short_description": "Course introduction",
+  "long_description": "Full course description"
 }
 ```
 
-Es un ejemplo de PATCH: requiere la fecha leída más reciente y permite título, slug,
-descripciones, topic, level y catalog_order positivo. Slug hasta 160, patrón minúsculas/dígitos
-con guiones; descripción corta hasta 140. Conflicto de fecha → 409 STALE_UPDATE.
+PATCH requires the latest read timestamp and permits title, slug, descriptions, topic, level, and positive catalog_order. Slugs allow lowercase letters/digits and hyphens, up to 160 characters; short description up to 140. Stale date: `409 STALE_UPDATE`.
 
-Publicar exige una lección publicada y descripciones no vacías. Sella published_at solo la
-primera vez y desde entonces bloquea slug, incluso despublicado. Archivado no se publica
-directamente; despublicar lo deja DRAFT. Archivar no borra progreso y duplicar no copia alumnos.
+Publication requires a published lesson and nonempty descriptions. First publication seals published_at and locks the slug even after unpublishing. Archived courses cannot publish directly; unpublishing returns DRAFT. Archiving preserves progress/files; duplication does not copy students.
 
-`PUT /admin/courses/order` recibe `{ "course_ids": ["id-a", "id-b"] }` con todos los activos,
-sin archivados; conflicto → 409 STALE_CATALOG_ORDER. Portada usa file multipart JPEG/PNG/WebP,
-hasta 5 MiB, horizontal mínimo 1200 × 750. Éxito 200 con detalle.
-[Reglas editoriales](planning/courses/README.md).
+`PUT /admin/courses/order` accepts all active course IDs, excluding archived ones, in `{ "course_ids": ["id-a", "id-b"] }`; conflicts return `409 STALE_CATALOG_ORDER`. Covers use multipart JPEG/PNG/WebP `file`, up to 5 MiB, landscape and at least 1200 × 750. Success returns `200` details. Replacement queues the prior cover for unused-file cleanup. See [editorial rules](planning/courses/README.md).
 
-## 14. Administración de lecciones, recursos y video
+## 14. Lesson, resource, and video administration
 
-Crear bajo el curso recibe `{ "title": "Introducción", "type": "ARTICLE" }` y devuelve
-201 con `{ lesson, course }`. Listar devuelve course y lessons de editor. GET de detalle incluye
-contenido, recursos con id/posición, métricas de artículo y updated_at.
+Creating under a course accepts `{ "title": "Introduction", "type": "ARTICLE" }` and returns `201 { lesson, course }`. Listing returns course/editor lessons. Detail GET includes content, resources with IDs/positions, article metrics, and updated_at.
 
-PATCH permite título, slug, descripción, type, is_free_sample, video_provider,
-video_external_id, duration_seconds, article_body, transcript y confirm_type_change. Título/slug
-máximo 160, id externo hasta 64. No exige expected_updated_at. Marcar muestra retira la marca
-de las otras lecciones del curso.
+PATCH permits title, slug, description, type, is_free_sample, video_provider, video_external_id, duration_seconds, article_body, transcript, and confirm_type_change. Title/slug max 160; external ID max 64. No expected_updated_at is required. Marking a free sample removes that mark from other course lessons.
 
-Cambiar de tipo con contenido devuelve 409 con data.from/to/will_discard y exige confirmación.
-El servidor limpia el tipo anterior, sanea artículos y recalcula métricas. Si una edición deja
-incompleta una publicada, pasa a DRAFT. Artículo saneado admite hasta 150000 caracteres.
+Type changes with existing content return 409 with data.from/to/will_discard and require confirmation. The server clears prior-type fields, sanitizes articles, and recalculates metrics. Published edits becoming incomplete return DRAFT. Sanitized article content is limited to 150000 characters.
 
-Publicar exige título, slug, descripción y contenido del tipo correspondiente. Si faltan
-campos devuelve 422 LESSON_INCOMPLETE con data.missing_fields; artículo vacío, ARTICLE_BODY_EMPTY.
-POST `/publish` publica y DELETE `/publish` despublica; ambos devuelven 200 con detalle.
+Publication requires title, slug, description, and type-appropriate content. Missing fields return `422 LESSON_INCOMPLETE` with data.missing_fields; empty articles return ARTICLE_BODY_EMPTY. POST `/publish` publishes; DELETE `/publish` unpublishes; both return `200` details.
 
-DELETE de lección requiere DRAFT; si hay datos de alumnos, devuelve 409 LESSON_HAS_STUDENT_DATA
-con progress_count/comment_count y necesita `{ "confirm_destroys_student_data": true }`.
-Publicado devuelve 409 LESSON_PUBLISHED. El éxito es 204 y el borrado físico.
+Lesson DELETE requires DRAFT. Student data produces `409 LESSON_HAS_STUDENT_DATA` with progress_count/comment_count and requires `{ "confirm_destroys_student_data": true }`. Published lessons return `409 LESSON_PUBLISHED`. Success is physical deletion with 204.
 
-Orden de temario recibe lesson_ids completos; recursos, resource_ids completos. Inconsistencia
-responde 422 LESSON_ORDER_MISMATCH. POST de recurso envía file/title multipart y devuelve
-201 con resource; PATCH renombra con title; DELETE quita y responde 204. Recurso incluye
-id/title/file_url/mime_type/size_bytes/position y se limpia del storage solo sin referencias.
+Syllabus order requires complete lesson_ids; resource order requires complete resource_ids. Mismatches return `422 LESSON_ORDER_MISMATCH`. Resource POST accepts multipart file/title and returns `201 { resource }`; PATCH renames using title; DELETE removes with 204. Resource fields are id/title/file_url/mime_type/size_bytes/position.
+
+Lesson/resource deletions transactionally queue detached storage keys. Immediate cleanup removes unused objects; failures remain persisted for retry. Shared references prevent deleting files still used by another resource/course. API deletion success does not require S3 to be available at that moment.
 
 ```json
 { "provider": "YOUTUBE", "external_id": "dQw4w9WgXcQ" }
 ```
 
-Ejemplo estructural del probe, sin garantizar disponibilidad de ese video. Devuelve
-`{ duration_seconds, title, thumbnail_url }`. Vimeo exige id numérico y aporta duración;
-YouTube exige 11 caracteres y devuelve duración null. YouTube necesita duración manual positiva
-al guardar, hasta 2147483647. Un id nuevo sin proveedor elige YouTube.
+This probe example does not guarantee the video's availability. Returns `{ duration_seconds, title, thumbnail_url }`. Vimeo requires a numeric ID and supplies duration; YouTube requires 11 characters and returns null duration. Saving YouTube requires positive manual duration up to 2147483647. A new ID without provider chooses YouTube.
 
-El probe directo puede devolver 502 VIDEO_PROVIDER_UNAVAILABLE. En PATCH, un fallo temporal
-puede guardar como borrador y devolver 200 con ese meta.code. Los errores de video inexistente
-/no insertable son 422. [Detalle de contenido](planning/lessons/README.md).
+Direct probing can return `502 VIDEO_PROVIDER_UNAVAILABLE`. PATCH may save a draft after a temporary failure and return 200 with that meta.code. Missing/nonembeddable videos return 422. See [content details](planning/lessons/README.md).
 
-## 15. Moderación
+## 15. Moderation
 
-GET `/admin/comments` admite tab recent/reported/hidden, page desde 1 y page_size 20 por defecto,
-máximo 50. Devuelve comments, counts y pagination con page/page_size/total/has_next.
-Cada fila agrega status, body, is_reply, parent_id, is_answered nullable, report_count,
-is_public, autor limitado y referencia de curso/lección.
+GET `/admin/comments` accepts tab recent/reported/hidden, page >=1, and page_size default 20/max 50. Returns comments, counts, and pagination with page/page_size/total/has_next. Rows add status, body, is_reply, parent_id, nullable is_answered, report_count, is_public, restricted author, and course/lesson references.
 
-GET `/counts` devuelve `{ counts: { pending, reported } }`. reported cuenta comentarios visibles
-con reportes abiertos; pending une esos comentarios con raíces de autor no ADMIN sin respuesta
-visible del equipo. No sumar ambos. recent excluye autores ADMIN; hidden ordena por ocultación.
+GET `/counts` returns `{ counts: { pending, reported } }`. reported counts visible comments with open reports; pending unions those with non-ADMIN roots without a visible team reply. Do not add both counts. recent excludes ADMIN authors; hidden sorts by hiding time.
 
-POST `/:id/replies` recibe body y devuelve 201 con comment/counts. PATCH `/:id/status` recibe
-VISIBLE/HIDDEN y devuelve 200 con comment/counts, revisando reportes. DELETE `/:id` borra
-lógicamente y responde 200 con estado DELETED; repetir DELETE es aceptado, pero cambiar status
-de un borrado devuelve 409 COMMENT_ALREADY_DELETED. [Moderación](planning/comments/README.md).
+POST `/:id/replies` accepts body and returns `201` with comment/counts. PATCH `/:id/status` accepts VISIBLE/HIDDEN, reviews reports, and returns `200` with comment/counts. DELETE performs logical deletion and returns 200 with DELETED state. Repeated DELETE is accepted; status changes on deleted comments return `409 COMMENT_ALREADY_DELETED`. See [moderation](planning/comments/README.md).
 
-## 16. Directorio y CSV de usuarios
+## 16. User directory and CSV
 
-GET `/admin/users` acepta search (hasta 120), city múltiple, registered_from/registered_to
-YYYY-MM-DD, is_independent/email_verified/has_completed de texto true/false, completed_topic
-múltiple, sort created_at/full_name, page y per_page. Default 1/25, máximo 100. Día final inclusivo
-según offset de reporte; created_at ordena descendente y full_name ascendente con id de desempate.
+GET `/admin/users` accepts search (max 120), multiple city, registered_from/registered_to in YYYY-MM-DD, text true/false is_independent/email_verified/has_completed, multiple completed_topic, sort created_at/full_name, page, and per_page. Defaults: 1/25, max 100. The final day is inclusive under the reporting offset; created_at sorts descending, full_name ascending, with ID tie-breaking.
 
 ```jsonc
 {
@@ -664,108 +474,77 @@ según offset de reporte; created_at ordena descendente y full_name ascendente c
 }
 ```
 
-Fragmento ilustrativo del sobre. Stats son globales, no filtradas. Cada usuario devuelve perfil
-permitido y completed_courses por fecha de cierre. No hay hash, sesión ni IP en el DTO.
+This is an illustrative envelope fragment. Stats are global, not filtered. Users expose permitted profile fields and completed_courses based on closure dates, never hashes, sessions, or IPs.
 
-GET `/admin/users/export` usa los mismos filtros sin paginar. CSV con BOM, cabeceras de descarga,
-no-store y neutralización de fórmulas. Máximo ADMIN_EXPORT_MAX_ROWS; exceso devuelve
-422 EXPORT_TOO_LARGE con meta.row_count/max_rows. [Contrato de usuarios](planning/users/README.md).
+GET `/admin/users/export` uses the same filters without pagination. CSV includes BOM, download headers, no-store, and formula neutralization. `ADMIN_EXPORT_MAX_ROWS` bounds exports; excess returns `422 EXPORT_TOO_LARGE` with meta.row_count/max_rows. See [users](planning/users/README.md).
 
-## 17. Avisos y demanda de temas
+## 17. Notifications and topic demand
 
-POST `/notifications/signups` recibe email anónimo y course_slug opcional; omitir slug registra
-catálogo general y enviarlo exige un curso publicado. POST `/notifications/topics` recibe
-email anónimo y search_term de 1–120 sin controles ASCII, con espacios compactados.
+POST `/notifications/signups` accepts guest email and optional course_slug. Omitted slug means the general catalog; supplied slug requires a published course. POST `/notifications/topics` accepts guest email and search_term of 1–120 characters, compacted spaces, without ASCII control characters.
 
-Si hay sesión se usa su email y se descarta el del body. Ambas responden 200 sin data; signup
-deduplica, pero repetir tema incrementa request_count. La IP se guarda hasheada con sal en
-estas tablas.
+A valid session supplies its own email and discards the body email. Both return 200 without data. Signups deduplicate; repeated topic requests increment request_count. IPs in these tables are salted hashes.
 
-Listado admin de signups admite course_id, notified true/false, page y per_page (1/25, máximo100)
-y devuelve signups/pagination con page/per_page/total/has_next. Alta incluye id/email, course
-nullable, created_at, notified_at y has_account por coincidencia con usuario actual.
+Administrative signup lists accept course_id, notified true/false, page, and per_page (default 1/25, max 100), returning signups/pagination with page/per_page/total/has_next. Rows include id/email, nullable course, created_at, notified_at, and has_account matched against current users.
 
-Exportación usa course_id/notified y devuelve CSV de todas las filas, sin el tope de usuarios.
-Omitir course_id incluye catálogo y cursos; no significa seleccionar solo catálogo.
+Exports filter by course_id/notified and return all selected CSV rows without the user-export cap. Omitting course_id includes both general and course subscriptions, not only general ones.
 
 ```json
 { "course_id": null, "signed_up_before": "2026-10-16T12:00:00.000Z" }
 ```
 
-Body de POST `/admin/notifications/signups/notify`: null selecciona catálogo general y el
-instante no puede ser futuro. Marca las no avisadas con creación menor o igual al corte;
-devuelve `{ marked }`. No envía correos.
+POST `/admin/notifications/signups/notify` accepts this body: null selects the general catalog and the timestamp cannot be future. It marks unnotified rows created at/before the cutoff and returns `{ marked }`; it sends no email.
 
-GET `/admin/notifications/topics` devuelve topics con search_term, search_term_normalized,
-request_count, distinct_emails y last_requested_at. DELETE de subscribers recibe query email,
-borra ambas tablas para esa dirección y devuelve 204, o 404 si no existe.
-[Contrato de avisos](planning/notifications/README.md).
+GET `/admin/notifications/topics` returns topics with search_term, search_term_normalized, request_count, distinct_emails, and last_requested_at. Subscriber DELETE accepts query email, removes both tables' rows for it, and returns 204 or 404 if absent. See [notifications](planning/notifications/README.md).
 
-## 18. Errores adicionales al catálogo de auth
+## 18. Errors beyond authentication
 
-| HTTP | meta.code                                  | Condición                                                    |
-| ---- | ------------------------------------------ | ------------------------------------------------------------ |
-| 403  | FORBIDDEN                                  | Sesión sin rol ADMIN                                         |
-| 403  | LESSON_LOCKED                              | Lección publicada bloqueada o ya no disponible para progreso |
-| 409  | SLUG_TAKEN / LESSON_SLUG_TAKEN             | Slug ocupado en su ámbito                                    |
-| 409  | SLUG_LOCKED                                | Curso con primera publicación previa                         |
-| 409  | STALE_UPDATE / STALE_CATALOG_ORDER         | Fecha o conjunto de orden obsoletos                          |
-| 409  | COURSE_HAS_NO_LESSONS                      | Publicar sin lecciones publicadas                            |
-| 409  | INVALID_STATE_TRANSITION                   | Publicar curso archivado directamente                        |
-| 409  | LESSON_TYPE_CHANGE_NOT_CONFIRMED           | Cambio que descarta contenido sin confirmar                  |
-| 409  | LESSON_PUBLISHED / LESSON_HAS_STUDENT_DATA | Borrado no permitido o pendiente de confirmación             |
-| 409  | COMMENT_ALREADY_DELETED                    | Cambiar estado de comentario borrado                         |
-| 413  | FILE_TOO_LARGE                             | Archivo supera su límite                                     |
-| 413  | VALIDATION_ERROR                           | JSON/urlencoded supera 1 MiB                                 |
-| 415  | INVALID_FILE_TYPE                          | MIME no admitido o firma distinta                            |
-| 422  | IMAGE_TOO_SMALL                            | Dimensiones/orientación de portada inválidas                 |
-| 422  | LESSON_ORDER_MISMATCH                      | Conjunto de ids de lecciones/recursos inválido               |
-| 422  | LESSON_INCOMPLETE / ARTICLE_BODY_EMPTY     | Contenido insuficiente para publicación                      |
-| 422  | VIDEO_NOT_FOUND / VIDEO_NOT_EMBEDDABLE     | Rechazo del proveedor                                        |
-| 422  | EXPORT_TOO_LARGE                           | Demasiadas filas en CSV de usuarios                          |
-| 502  | VIDEO_PROVIDER_UNAVAILABLE                 | Fallo de red/timeout/respuesta del probe                     |
+| HTTP | meta.code                                  | Condition                                               |
+| ---- | ------------------------------------------ | ------------------------------------------------------- |
+| 403  | FORBIDDEN                                  | Session lacks ADMIN.                                    |
+| 403  | LESSON_LOCKED                              | Published lesson is locked or unavailable for progress. |
+| 409  | SLUG_TAKEN / LESSON_SLUG_TAKEN             | Slug already used in its scope.                         |
+| 409  | SLUG_LOCKED                                | Course was previously published.                        |
+| 409  | STALE_UPDATE / STALE_CATALOG_ORDER         | Stale timestamp or ordering set.                        |
+| 409  | COURSE_HAS_NO_LESSONS                      | Publishing without published lessons.                   |
+| 409  | INVALID_STATE_TRANSITION                   | Direct publication of an archived course.               |
+| 409  | LESSON_TYPE_CHANGE_NOT_CONFIRMED           | Unconfirmed content-discarding type change.             |
+| 409  | LESSON_PUBLISHED / LESSON_HAS_STUDENT_DATA | Deletion blocked or awaiting confirmation.              |
+| 409  | COMMENT_ALREADY_DELETED                    | Changing status of a deleted comment.                   |
+| 413  | FILE_TOO_LARGE                             | File exceeds its limit.                                 |
+| 413  | VALIDATION_ERROR                           | JSON/urlencoded exceeds 1 MiB.                          |
+| 415  | INVALID_FILE_TYPE                          | Unsupported MIME or mismatched signature.               |
+| 422  | IMAGE_TOO_SMALL                            | Invalid cover dimensions/orientation.                   |
+| 422  | LESSON_ORDER_MISMATCH                      | Invalid lesson/resource ID set.                         |
+| 422  | LESSON_INCOMPLETE / ARTICLE_BODY_EMPTY     | Insufficient publication content.                       |
+| 422  | VIDEO_NOT_FOUND / VIDEO_NOT_EMBEDDABLE     | Provider rejects the video.                             |
+| 422  | EXPORT_TOO_LARGE                           | Too many user CSV rows.                                 |
+| 502  | VIDEO_PROVIDER_UNAVAILABLE                 | Probe network/timeout/response failure.                 |
+| 503  | STORAGE_UNAVAILABLE                        | Storage operation/signing unavailable.                  |
 
-JSON mal formado y multipart inválido pueden devolver 400 VALIDATION_ERROR. Zod devuelve
-422 con fields de claves i18n. Un fallo inesperado devuelve 500 INTERNAL_ERROR; detalles solo
-en log. Muchos schemas eliminan claves desconocidas, sin rechazar todo campo adicional.
-Los códigos existen en [error_codes](../src/constants/error_codes.ts); su status depende de la
-acción. Un 200 puede llevar EMAIL_ALREADY_VERIFIED o VIDEO_PROVIDER_UNAVAILABLE como señal.
+Malformed JSON/multipart can return `400 VALIDATION_ERROR`. Zod returns 422 with i18n field keys. Unexpected failures return `500 INTERNAL_ERROR`, with details only in logs. Many schemas strip unknown keys rather than rejecting every extra field. Codes live in [error_codes](../src/constants/error_codes.ts); status depends on the action. A 200 can carry EMAIL_ALREADY_VERIFIED or VIDEO_PROVIDER_UNAVAILABLE as a signal.
 
-## 19. Límites fuera de autenticación
+## 19. Limits outside authentication
 
-| Operación                              | Límite                          | Clave              |
-| -------------------------------------- | ------------------------------- | ------------------ |
-| Guardar posición                       | 1/s                             | Usuario            |
-| Comentario + respuesta públicos        | 5/h compartidos                 | Usuario            |
-| Autoguardado de curso                  | 60/min                          | ADMIN              |
-| Probe de video                         | 20/h                            | ADMIN              |
-| Respuesta/status/borrado de moderación | 60/h compartidos                | ADMIN              |
-| CSV de usuarios                        | 5/h                             | ADMIN              |
-| Altas de aviso + tema                  | 10/h IP y 5/h email compartidos | IP/correo efectivo |
-| CSV de avisos                          | 20/h                            | ADMIN              |
+| Operation                      | Limit                              | Key                |
+| ------------------------------ | ---------------------------------- | ------------------ |
+| Save position                  | 1/second                           | User               |
+| Public comment + reply         | Shared 5/hour                      | User               |
+| Submit exam                    | 5/minute                           | User               |
+| Course autosave                | 60/minute                          | ADMIN              |
+| Video probe                    | 20/hour                            | ADMIN              |
+| Moderation reply/status/delete | Shared 60/hour                     | ADMIN              |
+| User CSV                       | 5/hour                             | ADMIN              |
+| Notification signup + topic    | Shared 10/hour IP and 5/hour email | IP/effective email |
+| Notification CSV               | 20/hour                            | ADMIN              |
 
-Los limitadores son locales al proceso, emiten 429 RATE_LIMITED y Retry-After con la ventana
-completa. Reenvío de verificación usa RESEND_COOLDOWN con tiempo restante. Reinicio o varias
-réplicas afectan la contabilidad en memoria. El resto de rutas no hereda automáticamente una
-cuota que no esté montada en su router.
+Limiters are process-local and return `429 RATE_LIMITED` with the whole window in Retry-After. Verification resending uses RESEND_COOLDOWN with remaining time. Restarts and replicas affect in-memory accounting. Other routes do not inherit quotas absent from their router.
 
-## 20. Salud y archivos fuera de `/api/v1`
+## 20. Health and files outside `/api/v1`
 
-GET `/ping` devuelve texto de vida HTTP sin acceder a PostgreSQL. No existe readiness SQL.
-Con almacenamiento local, GET `/files/<key>` sirve bytes públicos, sin JWT ni sobre JSON;
-con driver s3 esa ruta estática se omite. Los directorios no tienen índice y se deniegan dotfiles.
-La firma/MIME/tamaño se valida al subir, no al solicitar una URL ya conocida.
+GET `/ping` returns HTTP liveness text without querying PostgreSQL. There is no SQL readiness route. With local storage, GET `/files/<key>` serves public bytes without JWT/JSON envelope; with S3 this static route is omitted. Directory indexes and dotfiles are denied. Signatures, MIME, and size are checked on upload, not when requesting a known URL.
 
-Con S3, las portadas y avatares nuevos usan `/public/` con URL sin firma; los recursos
-usan `/private/` y reciben URLs CloudFront firmadas al responder (SHA256, TTL de 300 s por defecto). La DB conserva URL canónica
-y clave; los DTOs conservan sus campos `*_url` y no publican claves internas. Filas legacy sin
-clave y URLs externas conservan su dirección original. Una lección bloqueada no firma recursos.
-El cliente renueva enlaces vencidos consultando otra vez la API; no guardarlos como URLs permanentes.
-La API añade `Cache-Control: private, no-store` para sus respuestas.
+With S3, new covers/avatars use unsigned `/public/`; resources use `/private/` and receive signed CloudFront URLs on response (SHA256, default 300-second TTL). The database stores canonical URLs and keys; DTOs retain `*_url` fields without internal keys. Legacy keyless rows/external URLs retain their original address. Locked lessons do not sign resource URLs. Clients renew expired links by querying the API and must not treat them as permanent. API responses use `Cache-Control: private, no-store`.
 
-Los fallos de S3 o de firma devuelven `503` con `meta.code: STORAGE_UNAVAILABLE`, sin detalles
-del proveedor ni fallback a URLs sin firma. La configuración inválida impide el arranque.
+S3/signing failures return `503 STORAGE_UNAVAILABLE` without provider details or unsigned fallback; invalid configuration prevents startup. Committed deletion cleanup is the exception: failures stay queued for retry rather than undoing the database deletion.
 
-[STORAGE](STORAGE.md) detalla acceso y persistencia; [TESTING](TESTING.md) define el entorno de
-verificación. Este contrato describe el código disponible, sin afirmar una nueva prueba en vivo
-de las integraciones externas o de producción.
+[STORAGE](STORAGE.md) details access/persistence; [TESTING](TESTING.md) defines verification environments. This contract describes available code, not a new live verification of every external integration or production deployment.

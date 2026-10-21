@@ -1,19 +1,31 @@
 import { MimeTypes } from '@/constants/files';
 import { storage } from '@/infrastructure/storage/storage';
-import { createAdminResourceService } from '@/modules/courses/features/admin_lessons/presentation/admin_lessons.service';
+import { removeStoredFile } from '@/infrastructure/storage/cleanup';
+import {
+  createAdminResourceService, deleteAdminLessonService, deleteAdminResourceService,
+} from '@/modules/courses/features/admin_lessons/presentation/admin_lessons.service';
 import {
   createAdminResource,
+  deleteAdminLesson,
+  deleteAdminResource,
   getAdminLesson,
+  getAdminResource,
+  lessonStudentDataCounts,
   type AdminLessonRecord,
 } from '@/modules/courses/shared/data/admin_lessons.repository';
 
 jest.mock('@/modules/courses/shared/data/admin_lessons.repository', () => ({
   createAdminResource: jest.fn(),
   getAdminLesson: jest.fn(),
+  deleteAdminLesson: jest.fn(),
+  deleteAdminResource: jest.fn(),
+  getAdminResource: jest.fn(),
+  lessonStudentDataCounts: jest.fn(),
 }));
 jest.mock('@/infrastructure/storage/storage', () => ({
   storage: { save: jest.fn(), remove: jest.fn(), readUrl: jest.fn() },
 }));
+jest.mock('@/infrastructure/storage/cleanup', () => ({ removeStoredFile: jest.fn() }));
 
 const lesson: AdminLessonRecord = {
   id: 'lesson-1',
@@ -41,12 +53,13 @@ const url = `https://cdn.test/${key}`;
 const content = Buffer.from('%PDF-1.7');
 const file = { content, mime_type: MimeTypes.pdf, size_bytes: content.byteLength };
 const save = jest.spyOn(storage, 'save');
-const remove = jest.spyOn(storage, 'remove');
+const remove = jest.mocked(removeStoredFile);
 const readUrl = jest.spyOn(storage, 'readUrl');
 const create = jest.mocked(createAdminResource);
 
 beforeEach(() => {
   jest.mocked(getAdminLesson).mockResolvedValue(lesson);
+  jest.mocked(lessonStudentDataCounts).mockResolvedValue({ progress_count: 0, comment_count: 0 });
   save.mockResolvedValue({ key, url, mime_type: MimeTypes.pdf, size_bytes: content.byteLength });
   remove.mockResolvedValue(undefined);
   create.mockResolvedValue({
@@ -91,5 +104,45 @@ describe('persistencia y firma de recursos administrativos', () => {
     );
     expect(create).toHaveBeenCalledTimes(1);
     expect(remove).not.toHaveBeenCalled();
+  });
+
+  it('al borrar una lección procesa cada clave después de confirmar la eliminación', async () => {
+    jest.mocked(deleteAdminLesson).mockResolvedValue([key, key]);
+    await deleteAdminLessonService(lesson.id, false);
+    expect(deleteAdminLesson).toHaveBeenCalledWith(lesson.id, lesson.course_id);
+    expect(remove).toHaveBeenCalledTimes(1);
+    expect(remove).toHaveBeenCalledWith(key);
+    expect(remove.mock.invocationCallOrder[0]).toBeGreaterThan(
+      jest.mocked(deleteAdminLesson).mock.invocationCallOrder[0] ?? 0,
+    );
+  });
+
+  it('no borra archivos si la eliminación de la lección falla', async () => {
+    jest.mocked(deleteAdminLesson).mockRejectedValueOnce(new Error('database failed'));
+    await expect(deleteAdminLessonService(lesson.id, false)).rejects.toThrow('database failed');
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  it('no inicia la limpieza si faltó confirmar la eliminación con datos de alumnos', async () => {
+    jest.mocked(lessonStudentDataCounts).mockResolvedValue({ progress_count: 1, comment_count: 0 });
+    await expect(deleteAdminLessonService(lesson.id, false)).rejects.toMatchObject({ statusCode: 409 });
+    expect(deleteAdminLesson).not.toHaveBeenCalled();
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  it('al borrar un recurso inicia la limpieza de su archivo asociado', async () => {
+    const resource = await createAdminResourceService(lesson.id, 'Document', file);
+    const row = jest.mocked(createAdminResource).mock.results[0];
+    if (row?.type !== 'return') {
+      throw new Error('Expected created resource');
+    }
+    const saved = await row.value;
+    jest.mocked(getAdminResource).mockResolvedValue(saved);
+    jest.mocked(deleteAdminResource).mockResolvedValue(saved);
+    await deleteAdminResourceService(lesson.id, resource.resource.id);
+    expect(remove).toHaveBeenCalledWith(key);
+    expect(remove.mock.invocationCallOrder[0]).toBeGreaterThan(
+      jest.mocked(deleteAdminResource).mock.invocationCallOrder[0] ?? 0,
+    );
   });
 });

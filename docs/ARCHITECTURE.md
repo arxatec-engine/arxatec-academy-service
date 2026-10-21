@@ -1,223 +1,156 @@
-# Arquitectura — Arxatec Academy Service
+# Architecture — Arxatec Academy Service
 
-Academy es una API REST para formación: Express 5, TypeScript estricto, Zod, PostgreSQL con
-Prisma 7 y Pino. El servicio contiene catálogo, lecciones, identidad del alumno, progreso,
-comunidad y administración de contenido en un mismo proceso. La estructura documental sigue
-la de Admin; la implementación mantiene los contratos propios de Academy.
+Academy is a REST learning API built with Express 5, strict TypeScript, Zod, PostgreSQL through Prisma 7, and Pino. Catalog, lessons, student identity, progress, community, and content administration share one process. Documentation follows Admin's organization while implementation retains Academy's contracts.
 
-## 1. Stack y límites del producto
+## 1. Stack and product boundaries
 
-| Capa                 | Implementación                                                               |
-| -------------------- | ---------------------------------------------------------------------------- |
-| Runtime y paquetes   | Node.js >=22.12, pnpm fijado en `packageManager`                             |
-| HTTP                 | Express 5, Helmet, CORS, cookie-parser y Multer                              |
-| Lenguaje y build     | TypeScript estricto, CommonJS, aliases `@/`, `tsc` y `tsc-alias`             |
-| Persistencia         | Prisma 7 con `@prisma/adapter-pg`, PostgreSQL y esquema dividido por dominio |
-| Validación           | Zod en entradas, policies y mappers explícitos                               |
-| Autenticación        | JWT HS256, sesiones persistidas, Passport Google OAuth 2.0                   |
-| Contraseñas y tokens | Argon2id, tokens aleatorios y SHA-256 para tokens de un solo uso             |
-| Correo               | Nodemailer SMTP en desarrollo y producción; transporte log solo en pruebas   |
-| Archivos             | Puerto de almacenamiento, local y S3 con CloudFront firmado                  |
-| Video                | Puerto oEmbed con adaptadores Vimeo, YouTube y fake                          |
-| Pruebas              | Jest, SWC, Supertest y PostgreSQL real para integración                      |
+| Layer                | Implementation                                                           |
+| -------------------- | ------------------------------------------------------------------------ |
+| Runtime and packages | Node.js >=22.12; pnpm pinned in `packageManager`.                        |
+| HTTP                 | Express 5, Helmet, CORS, cookie-parser, and Multer.                      |
+| Language and build   | Strict TypeScript, CommonJS, `@/` aliases, `tsc`, and `tsc-alias`.       |
+| Persistence          | Prisma 7 with `@prisma/adapter-pg`, PostgreSQL, and domain-split schema. |
+| Validation           | Zod inputs, explicit policies, and mappers.                              |
+| Authentication       | HS256 JWTs, persisted sessions, Passport Google OAuth 2.0.               |
+| Passwords and tokens | Argon2id, random tokens, and SHA-256 for single-use tokens.              |
+| Email                | Nodemailer SMTP in development/production; log transport only in tests.  |
+| Files                | Storage port, local adapter, and S3 with signed CloudFront delivery.     |
+| Cleanup              | PostgreSQL-backed deletion queue and in-process retry worker.            |
+| Video                | oEmbed port with Vimeo, YouTube, and fake adapters.                      |
+| Tests                | Jest, SWC, Supertest, and real PostgreSQL integration tests.             |
 
-Academy tiene una base propia y roles STUDENT/ADMIN de producto. No utiliza workspaces,
-pertenencias multi-tenant, créditos, facturación ni una conexión lectora a Lawyer. El arranque
-no incorpora Redis, BullMQ, Socket.IO, workers o cron.
+Academy owns its database and STUDENT/ADMIN product roles. It has no workspaces, multi-tenant memberships, credits, billing, or read connection to Lawyer. Startup does not include Redis, BullMQ, Socket.IO, or external cron. The storage cleanup worker runs inside the backend process.
 
-## 2. Mapa del repositorio
+## 2. Repository map
 
 ```text
 src/
-├── server.ts                    # HTTP, registro de recursos y cierre ordenado
-├── app/create_app.ts            # composición de Express
-├── config/                      # env, logger, Prisma, email y Passport
-├── constants/                   # endpoints, políticas, códigos, mensajes y claves i18n
-├── generated/                   # cliente Prisma generado; no editar
+├── server.ts                    # HTTP, resource registration, and orderly shutdown
+├── app/create_app.ts            # Express composition
+├── config/                      # environment, logger, Prisma, email, and Passport
+├── constants/                   # endpoints, policies, codes, messages, and i18n keys
+├── generated/                   # generated Prisma client; do not edit
 ├── infrastructure/
-│   ├── email/                   # puerto de entrega, enlaces y plantillas
-│   ├── jwt/                     # firma y validación del token de sesión
+│   ├── email/                   # delivery port, links, and templates
+│   ├── jwt/                     # session token signing and validation
 │   ├── password/                # Argon2id
-│   ├── tokens/                  # tokens opacos y hash
-│   ├── storage/                 # puerto, validación y adaptadores
-│   └── video/                   # probe y adaptadores de proveedor
-├── middlewares/                 # identidad, permisos, límites, uploads y errores
+│   ├── tokens/                  # opaque tokens and hashing
+│   ├── storage/                 # port, validation, adapters, and durable cleanup
+│   └── video/                   # probes and provider adapters
+├── middlewares/                 # identity, permissions, limits, uploads, and errors
 ├── modules/
-│   ├── auth/                    # registro, login, sesión, reset, verificación, Google
-│   ├── courses/                 # catálogo, lectura y edición de cursos/lecciones
-│   ├── progress/                # inscripción, avance, Mis cursos y certificados públicos
-│   ├── comments/                # hilos, respuestas, reportes y moderación
-│   ├── user/                    # perfil, cuenta, directorio y CSV
-│   └── notifications/           # avisos, temas y gestión administrativa
-├── routes/index.ts              # composición bajo /api/v1
-├── seed/                        # fixtures de desarrollo
-├── types/                       # identidad y ampliación de Express
-└── utils/                       # respuestas, errores, CSV, fechas y normalización
+│   ├── auth/                    # registration, login, sessions, reset, verification, Google
+│   ├── courses/                 # catalog, reading, and course/lesson editing
+│   ├── progress/                # enrollment, progress, My courses, exams, certificates
+│   ├── comments/                # threads, replies, reports, and moderation
+│   ├── user/                    # profile, account, directory, and CSV
+│   └── notifications/           # notifications, topics, and administration
+├── routes/index.ts              # composition under /api/v1
+├── seed/                        # development fixtures
+├── types/                       # identity and Express extensions
+└── utils/                       # responses, errors, CSV, dates, and normalization
 
-prisma/schema/                   # _base, enums y modelos de dominio
-prisma/migrations/               # historial SQL de Academy
-config/jest/                     # configuración compartida e integración
-tests/integration/postgres/      # flujos transversales con base real
-scripts/                        # citas documentales y smoke HTTP
-docs/                           # guías, alcance por área y entregas
+prisma/schema/                   # base, enums, domain models, and cleanup queue
+prisma/migrations/               # Academy SQL history, including cleanup triggers
+config/jest/                     # shared and integration configuration
+tests/integration/postgres/      # cross-module flows against a real database
+scripts/                        # documentation citation checks and HTTP smoke tests
+docs/                           # guides, area scope, and releases
 ```
 
-## 3. Arranque y cadena HTTP
+## 3. Startup and HTTP chain
 
-[createApp](../src/app/create_app.ts) monta las piezas en este orden:
+[createApp](../src/app/create_app.ts) assembles these components in order:
 
-| Orden | Pieza                             | Propósito                                              |
-| ----- | --------------------------------- | ------------------------------------------------------ |
-| 1     | `trust proxy = 1`                 | Resolver la IP con una topología de un salto confiable |
-| 2     | Helmet y request id               | Cabeceras y correlación antes de responder             |
-| 3     | cookie-parser, logger y CORS      | Estado OAuth, log HTTP y origen de frontend            |
-| 4     | JSON y urlencoded, 1 MiB cada uno | Construir el body antes de límites que usan el correo  |
-| 5     | Passport initialize               | Habilitar la estrategia Google sin sesiones Passport   |
-| 6     | `GET /ping`                       | Comprobar respuesta HTTP, sin consulta de base         |
-| 7     | `/files`                          | Servir la carpeta pública con driver local             |
-| 8     | Routers                           | Montar rutas públicas, alumno y administración         |
-| 9     | 404 y error handler               | Convertir errores en el contrato HTTP común            |
+| Order | Component                       | Purpose                                             |
+| ----- | ------------------------------- | --------------------------------------------------- |
+| 1     | `trust proxy = 1`               | Resolve client IP for a single trusted proxy hop.   |
+| 2     | Helmet and request ID           | Headers and correlation before responses.           |
+| 3     | cookie-parser, logger, and CORS | OAuth state, HTTP logging, and frontend origin.     |
+| 4     | JSON and urlencoded, 1 MiB each | Parse bodies before email-aware limits.             |
+| 5     | Passport initialize             | Enable Google without Passport sessions.            |
+| 6     | `GET /ping`                     | Check HTTP responsiveness without a database query. |
+| 7     | `/files`                        | Serve public files with the local driver.           |
+| 8     | Routers                         | Public, student, and administrative routes.         |
+| 9     | 404 and error handler           | Translate errors into the shared HTTP contract.     |
 
-CORS deriva un origen de `FRONTEND_URL`; no sustituye Bearer ni `requireAdmin`.
-El middleware de archivos estáticos no autentica descargas. La estrategia Google se registra
-al utilizarse y falla si faltan sus credenciales, sin bloquear el login por contraseña al arrancar.
+CORS derives one origin from `FRONTEND_URL`; it does not replace Bearer authentication or `requireAdmin`. Static file middleware does not authenticate downloads. The Google strategy is registered on use and fails if its credentials are absent, without blocking password sign-in at startup.
 
-[server.ts](../src/server.ts) registra transporte de correo, Prisma y HTTP como recursos
-cerrables. SIGTERM/SIGINT los cierra en orden inverso: HTTP, Prisma y correo, con watchdog de
-10 segundos. Las excepciones no controladas también activan el cierre. No existe una ruta
-readiness que consulte PostgreSQL ni una comprobación de base antes de `listen`.
+[server.ts](../src/server.ts) registers email, Prisma, storage cleanup, and HTTP as closeable resources. SIGTERM/SIGINT close them in reverse order: HTTP, cleanup, Prisma, then email, with a 10-second watchdog. Unhandled exceptions also trigger shutdown. There is no PostgreSQL-aware readiness route or database check before `listen`.
 
-## 4. Slices y responsabilidades
+## 4. Slices and responsibilities
 
 ```text
 modules/<module>/features/<feature>/<action>/
-├── domain/          # schema Zod, payload, tipos y reglas locales
-├── data/            # persistencia propia, cuando corresponde
-├── presentation/    # rutas, controller y service
-├── docs/README.md   # contrato, porqué, invariantes y evidencia
-├── test/            # tests de la unidad
-└── utils/           # solo si el helper pertenece a esta acción
+├── domain/          # Zod schema, payload, types, and local rules
+├── data/            # owned persistence, where needed
+├── presentation/    # routes, controller, and service
+├── docs/README.md   # contract, rationale, invariants, and evidence
+├── test/            # unit tests
+└── utils/           # only helpers belonging to this action
 ```
 
-El recorrido es `router → middleware → controller → schema → service → repository → Prisma`.
-Controllers conocen Express y construyen respuestas; services reciben datos tipados y aplican
-reglas; repositories seleccionan columnas y escriben; las políticas puras definen decisiones
-reutilizables. Las integraciones de correo, almacenamiento y video viven tras puertos.
+The flow is `router → middleware → controller → schema → service → repository → Prisma`. Controllers know Express and construct responses; services accept typed data and apply rules; repositories select columns and write; pure policies define reusable decisions. Email, storage, and video integrations live behind ports.
 
-Auth, lectura de catálogo, progreso y perfil tienen acciones separadas. Las features
-administrativas y notifications aún agrupan varias acciones en archivos de presentación; se
-registran como implementadas con deuda de estructura, no como una separación ya completada.
+Authentication, catalog reading, progress, and profile separate actions. Administrative features and notifications still group multiple actions in presentation files; they are implemented with structural debt, not fully separated.
 
-| Alcance compartido            | Ubicación                     | Ejemplo                                                  |
-| ----------------------------- | ----------------------------- | -------------------------------------------------------- |
-| Una acción                    | La propia acción              | Hash señuelo de login, suelo de recuperación             |
-| Varias acciones de un dominio | `modules/<module>/shared`     | Sesiones, referencias de cursos, repositorio de progreso |
-| Infraestructura transversal   | `infrastructure`              | Envío de correo, archivo local, probe externo            |
-| Helpers sin negocio de módulo | `utils`, `constants`, `types` | Sobre HTTP, CSV y códigos de error                       |
+| Shared scope                          | Location                      | Example                                                      |
+| ------------------------------------- | ----------------------------- | ------------------------------------------------------------ |
+| One action                            | The action itself             | Dummy login hash, recovery timing floor.                     |
+| Multiple actions in a domain          | `modules/<module>/shared`     | Sessions, course references, progress repository.            |
+| Cross-cutting infrastructure          | `infrastructure`              | Email delivery, local files, external probes, cleanup queue. |
+| Helpers without module business logic | `utils`, `constants`, `types` | HTTP envelope, CSV, error codes.                             |
 
-Dependency-cruiser verifica ciclos, imports privados entre módulos, runtime hacia tests,
-constants hacia runtime y utils hacia módulos. No prueba por sí solo todas las reglas de diseño:
-por ejemplo, no hay una regla general que detecte cada uso de Express en un service.
+Dependency-cruiser checks cycles, cross-module private imports, runtime-to-test dependencies, constants-to-runtime dependencies, and utils-to-module dependencies. It does not prove every design rule; for example, there is no general rule detecting every Express usage inside a service.
 
-## 5. Identidad y sesiones
+## 5. Identity and sessions
 
-El JWT incluye `sub`, `jti`, `role`, `iat`, `exp` e `iss`. Su firma HS256 valida el portador,
-pero cada petición autenticada consulta `auth_sessions` y su usuario. Se comprueba coincidencia
-entre `sub` y usuario, revocación y caducidad. El rol efectivo y la verificación de correo vienen
-de PostgreSQL, por lo que un claim anterior no conserva permisos retirados.
+JWTs include `sub`, `jti`, `role`, `iat`, `exp`, and `iss`. HS256 validates the bearer, but every authenticated request reads `auth_sessions` and its user. The service checks `sub`/user matching, revocation, and expiration. Effective roles and email verification come from PostgreSQL, so stale claims cannot preserve removed access.
 
-La ventana por inactividad es 30 días con `remember_me=true` y 12 horas con `false`. La
-renovación obligatoria se limita a una escritura cada cinco minutos. El JWT vence a los 180 días
-desde la creación; la ventana deslizante nunca supera ese tope. `optionalAuthenticate` reconoce
-una sesión válida, pero no la renueva; un Bearer inválido se trata como anónimo en esas rutas.
+Inactivity windows are 30 days with `remember_me=true` and 12 hours with `false`. Required authentication renews at most once every five minutes. JWTs expire 180 days after creation; sliding windows never exceed that cap. `optionalAuthenticate` recognizes valid sessions without renewing them; invalid Bearer tokens are treated as anonymous on those routes.
 
-Logout utiliza el autenticador que tolera sesión revocada para repetir el cierre. Reset consume
-el token, cambia contraseña, verifica el correo si faltaba y revoca todas las sesiones dentro
-de una transacción. El cambio desde perfil conserva la sesión actual y revoca las otras.
+Sign-out uses an authenticator that tolerates revoked sessions so closure can be repeated. Reset consumes the token, changes the password, verifies missing email verification, and revokes every session in one transaction. Profile password changes retain the current session and revoke others.
 
-Los secretos de verificación, reset y canje Google se guardan hasheados y se consumen con una
-escritura condicionada a no estar usados. Google utiliza state firmado y cookie de nonce;
-redirige un código opaco de 60 segundos al frontend, nunca el JWT en la URL.
+Verification, reset, and Google exchange secrets are stored hashed and consumed by a conditional unused-token write. Google uses signed state and a nonce cookie, redirecting a 60-second opaque code to the frontend, never a JWT in the URL.
 
-## 6. Contenido, acceso y publicación
+## 6. Content, access, and publication
 
-El catálogo solo consulta cursos publicados. La ficha presenta metadatos y temario publicado,
-incluido `lesson.id`; la lección abierta entrega video/artículo, transcripción y recursos.
-Sin sesión se puede leer una muestra gratuita; con sesión se leen las publicadas sin exigir
-inscripción ni correo verificado. Un contenido bloqueado devuelve `403 LESSON_LOCKED` con
-metadatos públicos, sin consultar el contenido abierto. Borradores y cursos archivados no se
-revelan en lecturas públicas por slug.
+The catalog queries only published courses. Course details present metadata and published syllabus, including `lesson.id`; open lessons return video/article, transcript, and resources. Guests can read a free sample; signed-in users can read published lessons without enrollment or verified email. Locked content returns `403 LESSON_LOCKED` with public metadata without reading open content. Drafts and archived courses are not exposed through public slug reads.
 
-El editor administrativo usa otros selects y requiere ADMIN. El curso controla autoguardado
-con `expected_updated_at`; su primera publicación sella `published_at` y bloquea slug. El orden
-se escribe como conjunto completo de ids activos. Publicar exige una lección publicada y
-ambas descripciones. Archivar retira del catálogo sin borrar progreso; duplicar copia borradores.
+The administrative editor uses different selects and requires ADMIN. Course autosave uses `expected_updated_at`; first publication sets `published_at` and locks the slug. Ordering writes a complete active-ID set. Publication requires a published lesson and both descriptions. Archiving removes courses from the catalog without deleting progress or files; duplication copies drafts.
 
-Las lecciones separan VIDEO/ARTICLE. Cambiar tipo limpia columnas incompatibles y puede exigir
-confirmación. El servidor sanea HTML y calcula palabras/minutos; al quedar incompleta una
-lección publicada, vuelve a borrador. Vimeo aporta duración; YouTube requiere duración manual
-positiva porque oEmbed no la devuelve. Ver [lecciones](planning/lessons/README.md).
+Lessons separate VIDEO/ARTICLE. Changing type clears incompatible columns and may require confirmation. The server sanitizes HTML and calculates words/minutes; published lessons that become incomplete return to draft. Vimeo supplies duration; YouTube requires a positive manual duration because oEmbed omits it. See [lessons](planning/lessons/README.md).
 
-## 7. Persistencia y transacciones
+## 7. Persistence and transactions
 
-[prisma.config.ts](../prisma.config.ts) define `prisma/schema`, migraciones y semilla.
-El cliente generado usa CommonJS en `src/generated`. Hay un único `PrismaPg`; no se configura
-un presupuesto explícito de pool, consulta o admisión como en Admin.
+[prisma.config.ts](../prisma.config.ts) declares `prisma/schema`, migrations, and seed. The generated client uses CommonJS under `src/generated`. A single `PrismaPg` has no explicit pool/query/admission budget equivalent to Admin's.
 
-El [mapa de datos](planning/data_model/README.md) explica índices, relaciones y cascadas. El
-progreso garantiza una fila por usuario/lección, inserta con conflicto ignorado y actualiza
-solo si avanza la posición. Completar agrupa marcado, inscripción y primer cierre en una
-transacción. La regla pura de finalización se llama desde el repositorio dentro de esa unidad
-para no sacar la decisión fuera del momento de escritura.
+The [data map](planning/data_model/README.md) documents indexes, relations, and cascades. Progress guarantees one row per user/lesson, inserts with conflict ignored, and updates only when playback position increases. Completion groups marking, enrollment, and first closure in one transaction. Its pure completion rule is invoked from the repository within that transaction so the decision stays at write time.
 
-La baja usa el mismo cliente transaccional al borrar progreso, borrar comentarios propios,
-retirar artefactos de auth y borrar usuario. El avatar se limpia después. Las funciones de
-otros módulos se consumen mediante su `shared`; una llamada con cliente global dentro de ese
-flujo perdería atomicidad.
+Account deletion shares a transaction client when deleting progress, owned comments, authentication artifacts, and the user. The avatar is cleaned afterward. Other modules are consumed through `shared`; calling a global client inside that flow would lose atomicity.
 
-La deuda de auth sigue siendo que varias acciones gestionan `auth_tokens` desde sus propios
-repositorios. Consolidarlo requiere preservar consumo único y límites transaccionales, junto
-con los mocks por path de esas acciones.
+File detachment is captured by database triggers into `storage_deletions` in the same transaction, including cascading deletes and cover/avatar replacements. Storage deletion happens after commit, with reference checks, leases, and persistent retries. Apply the SQL migration; schema synchronization alone does not install triggers. See [storage](STORAGE.md).
 
-## 8. Comunidad, usuarios y avisos
+Authentication still has several actions managing `auth_tokens` through their own repositories. Consolidation must preserve single consumption, transactional boundaries, and mocks targeting those exact paths.
 
-El hilo público tiene un nivel de respuestas y autores sin correo. La insignia de equipo se
-deriva del rol actual. Escribir comentario/respuesta pública exige sesión y correo verificado;
-reportar exige sesión y deduplica por usuario/comentario. Ocultar una raíz retira el hilo de la
-proyección pública. Moderación persiste estado, actor y fechas sin introducir un sistema de
-auditoría genérica equivalente al de Admin.
+## 8. Community, users, and notifications
 
-Perfil modifica campos permitidos, sin correo ni rol. Directorio proyecta identidad y cierre de
-cursos, con filtros y CSV. Sus estadísticas globales no se limitan a la búsqueda; la paginación
-vive en `meta.pagination`, mientras moderación y avisos la devuelven dentro de `data`.
+Public threads have one reply level and authors without email addresses. Team badges derive from current roles. Public comments/replies require a session and verified email; reports require a session and deduplicate by user/comment. Hiding a root removes its thread from public projections. Moderation retains state, actors, and dates without introducing Admin's generic auditing system.
 
-Avisos aceptan correo anónimo o el de la sesión. Una migración añade un índice parcial para
-el aviso general con `course_id IS NULL`; el índice único compuesto no bastaría para ese caso.
-Los pedidos de tema agrupan demanda normalizada. Marcar avisados no envía correo. La IP se
-persiste como hash con sal en esas tablas.
+Profile modifies permitted fields, excluding email and role. Directory projections include identity and course closures, filters, and CSV. Global statistics are not restricted by search. Pagination lives in `meta.pagination`, while moderation and notifications return it inside `data`.
 
-## 9. Errores, logs y archivos
+Notifications accept anonymous email or session email. A migration adds a partial index for general notifications with `course_id IS NULL`; the compound unique index alone is insufficient. Topic requests aggregate normalized demand. Marking notified sends no email. IPs in these tables are stored as salted hashes.
 
-`buildHttpResponse` entrega status, message, description, timestamp y path, con data/meta cuando
-aplican. `AppError` añade código estable y datos opcionales de confirmación. Zod se traduce a
-`422 VALIDATION_ERROR` con claves i18n; errores inesperados a `500 INTERNAL_ERROR`. CSV, OAuth y
-204 tienen transporte propio. Detalles y excepciones en [API](API.md).
+## 9. Errors, logs, and files
 
-Pino serializa la petición sin query y la respuesta sin cabeceras para evitar códigos OAuth
-en logs HTTP. El transporte de correo log solo se admite en pruebas e incluye el texto del correo;
-tratar ese log como sensible. Desarrollo y producción exigen SMTP.
+`buildHttpResponse` returns status, message, description, timestamp, and path, with optional data/meta. `AppError` adds a stable code and optional confirmation details. Zod becomes `422 VALIDATION_ERROR` with i18n keys; unexpected errors become `500 INTERNAL_ERROR`. CSV, OAuth, and `204` have specific transports. See [API](API.md) for details and exceptions.
 
-Los archivos se validan por uso, MIME, firma y tamaño. El driver local sirve URLs públicas;
-S3 usa un origen privado y URLs CloudFront firmadas al responder. La DB conserva URL canónica
-y clave interna; las filas con clave resuelven sobre la base vigente. Las respuestas API usan
-`private, no-store`. El acceso a los recursos se decide antes de firmar. Ver [STORAGE](STORAGE.md).
+Pino serializes requests without query strings and responses without headers to keep OAuth codes out of HTTP logs. Log email transport is test-only and includes email text; treat that log as sensitive. Development and production require SMTP.
 
-## 10. Verificación y evolución
+Files are validated by usage, MIME, signature, and size. The local driver serves public URLs; S3 uses a private origin and signed CloudFront URLs where required. The database stores canonical URLs and internal keys; keyed rows resolve against the current base URL. API responses use `private, no-store`. Resource authorization occurs before signing. See [STORAGE](STORAGE.md).
 
-[TESTING](TESTING.md) define los comandos y el aislamiento de PostgreSQL: la suite usa
-`DATABASE_URL` y requiere seed en una base desechable. [PERFORMANCE](PERFORMANCE.md) documenta
-las búsquedas y exportaciones que materializan conjuntos completos, sin inventar mediciones.
+## 10. Verification and evolution
 
-Toda evolución debe mantener contrato, README del área, [decisiones](DECISIONS.md), entorno si
-cambia y [registro de entrega](shipped/README.md). La revisión de producción conserva pendientes
-explícitos; una estructura documental completa no implica que esos pendientes estén resueltos.
+[TESTING](TESTING.md) defines commands and PostgreSQL isolation: integration uses `DATABASE_URL` and seeded disposable data. [PERFORMANCE](PERFORMANCE.md) documents searches/exports that materialize entire sets without inventing measurements.
+
+Changes must keep contracts, area READMEs, [decisions](DECISIONS.md), relevant environment documentation, and [release notes](shipped/README.md) consistent. Production review retains explicit follow-up; complete documentation does not imply that operational work has been verified.

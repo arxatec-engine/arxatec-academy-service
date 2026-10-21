@@ -1,81 +1,85 @@
-# Identidad, permisos, campos y trazabilidad
+# Identity, permissions, fields, and traceability
 
-**Estado:** sesiones y rol ADMIN implementados; sin capacidades ni auditoría general de
-comandos. [Auth](../auth/README.md) · [Índice](../README.md).
-No trasladar el modelo de permisos persistidos de Admin a Academy sin una implementación propia.
+**Status:** sessions and the ADMIN role are implemented; granular capabilities and a general
+command audit are not. [Auth](../auth/README.md) · [Index](../README.md).
+Do not assume Academy implements Admin's persisted permission model.
 
-## Matriz de acceso
+## Access matrix
 
-| Superficie                     | Anónimo           | Sesión STUDENT           | ADMIN                      |
-| ------------------------------ | ----------------- | ------------------------ | -------------------------- |
-| Catálogo, ficha e hilo visible | Sí                | Sí                       | Sí                         |
-| Lección muestra publicada      | Sí                | Sí                       | Sí                         |
-| Otra lección publicada         | 403 con metadatos | Sí                       | Sí                         |
-| Inscripción y progreso         | 401               | Sí                       | Sí, sobre su propia cuenta |
-| Perfil, resumen y baja         | 401               | Sí, identidad propia     | Sí, identidad propia       |
-| Comentario/respuesta pública   | 401               | Sí con correo verificado | Sí con correo verificado   |
-| Reporte de comentario          | 401               | Sí                       | Sí                         |
-| Alta aviso/tema                | Sí con email      | Usa email de sesión      | Usa email de sesión        |
-| Rutas `/admin`                 | 401               | 403 FORBIDDEN            | Sí                         |
-| Archivos bajo `/files`         | Sí con URL        | Sí                       | Sí                         |
+| Surface                                  | Anonymous                | STUDENT session                                         | ADMIN                              |
+| ---------------------------------------- | ------------------------ | ------------------------------------------------------- | ---------------------------------- |
+| Catalog, course details, visible threads | Yes                      | Yes                                                     | Yes                                |
+| Published sample lesson                  | Yes                      | Yes                                                     | Yes                                |
+| Other published lesson                   | 403 with metadata        | Yes                                                     | Yes                                |
+| Enrollment and progress                  | 401                      | Own account                                             | Own account                        |
+| Profile, summary, account deletion       | 401                      | Own identity                                            | Own identity                       |
+| Public comment/reply                     | 401                      | Verified email required                                 | Verified email required            |
+| Comment report                           | 401                      | Yes                                                     | Yes                                |
+| Notification/topic subscription          | Email required           | Session email                                           | Session email                      |
+| Exam status and submission               | 401                      | Own account; enrollment, syllabus, and exam gates apply | Same learner gates for own account |
+| Public certificate verification/PDF      | Yes, with certificate ID | Yes                                                     | Yes                                |
+| `/admin` routes                          | 401                      | 403 FORBIDDEN                                           | Yes                                |
+| Local-driver `/files` URLs               | Yes, with URL            | Yes                                                     | Yes                                |
 
-Lecturas opcionales tratan token inválido como anónimo. Todas las rutas administrativas
-montan authenticateTokenJwt y requireAdmin antes del controller. Responder desde moderación
-no añade el middleware de correo verificado de los hilos públicos.
+Optional authentication treats invalid tokens as anonymous. All administrative routers mount
+authenticateTokenJwt and requireAdmin before their controllers. Replies through moderation
+do not add the verified-email middleware used by public threads.
 
-El rol se lee desde PostgreSQL junto con la sesión. Cambiarlo no exige esperar al vencimiento
-del JWT para aplicar permisos. Registro no acepta elevar rol y no hay una API pública de
-asignación ADMIN. El seed de desarrollo no define un bootstrap productivo.
+The role is loaded from PostgreSQL with the session. Changes take effect without waiting for
+the JWT to expire. Registration cannot elevate roles, and there is no public ADMIN assignment
+API. The development seed is not a production bootstrap procedure.
 
-## Campos permitidos y excluidos
+## Included and excluded fields
 
-| Proyección        | Incluye                                         | Excluye                                         |
-| ----------------- | ----------------------------------------------- | ----------------------------------------------- |
-| Usuario propio    | Perfil, correo, rol, proveedor y verificación   | Hash, tokens OAuth, sesiones y clave de archivo |
-| Autor público     | Nombre, avatar, afiliación e insignia de equipo | Email, user_id y credenciales                   |
-| Lección bloqueada | Identidad, tipo, duración y temario público     | Video, artículo, transcripción y recursos       |
-| Editor            | Borradores y metadatos necesarios de contenido  | Credenciales de proveedores/almacenamiento      |
-| Directorio        | Perfil y conteos permitidos para ADMIN          | Hash, tokens, IP y user agent                   |
-| Avisos admin      | Direcciones y fechas de altas                   | ip_hash y secretos de la sal                    |
+| Projection                   | Includes                                     | Excludes                                            |
+| ---------------------------- | -------------------------------------------- | --------------------------------------------------- |
+| Own user                     | Profile, email, role, provider, verification | Password hash, OAuth tokens, sessions, storage keys |
+| Public author                | Name, avatar, affiliation, team badge        | Email, user_id, credentials                         |
+| Locked lesson                | Identity, type, duration, public syllabus    | Video, article, transcript, resources               |
+| Editor                       | Drafts and required content metadata         | Provider/storage credentials                        |
+| Directory                    | Profiles and counts authorized for ADMIN     | Hashes, tokens, IP addresses, user agents           |
+| Administrative notifications | Subscriber addresses and dates               | ip_hash and salt secrets                            |
 
-Los repositorios seleccionan campos y los mappers construyen DTOs. Que Prisma permita acceder
-a una columna no autoriza enviarla al navegador. Para una descarga local, la barrera es
-conocer su URL pública: ocultar resources en un DTO no autentica el acceso a sus bytes.
+Repositories select fields and mappers construct DTOs. Prisma access to a column does not
+permit exposing it to the browser. Local downloads rely on a known public URL: hiding resources
+in a DTO does not authenticate access to their bytes. Private S3 resources instead require
+CloudFront signatures; see [STORAGE](../../STORAGE.md).
 
-## Sesiones, red y logs
+## Sessions, network, and logs
 
-Bearer se envía en Authorization, no en query. State Google usa nonce de cookie y código de
-canje temporal; HTTP logger omite query y cabeceras de respuesta. Request id permite correlación.
-Evitar registrar cuerpos, Authorization o enlaces con tokens al añadir instrumentación.
+Send Bearer tokens in Authorization, never query parameters. Google state uses a cookie nonce
+and a temporary exchange code. The HTTP logger omits query strings and response headers;
+request IDs support correlation. Avoid logging request bodies, Authorization, or token-bearing
+links when adding instrumentation.
 
-El correo log solo se admite en pruebas e incluye el cuerpo para verificar flujos. Esos
-logs son sensibles. Auth guarda IP y user agent de sesión; avisos/temas guardan IP hasheada
-con sal. No afirmar que toda IP del producto esté anonimizada por esa variable.
+The log email transport is only allowed in tests and includes message bodies for flow checks.
+Treat these logs as sensitive. Auth stores session IP addresses and user agents; notifications
+and topic requests store salted IP hashes. That salt does not anonymize every IP in the product.
 
-CORS permite el origen de FRONTEND_URL y solicitudes sin Origin. El backend verifica sesión
-y rol por separado; CORS no protege contra clientes HTTP directos. No existe una protección de
-mutaciones por Origin idéntica a la cookie estricta de Admin.
+CORS permits FRONTEND_URL and requests without Origin. Session and role checks are separate;
+CORS does not protect against direct HTTP clients. Academy does not implement Admin's strict
+cookie-based mutation-origin guard.
 
-## Trazabilidad que existe
+## Existing traceability
 
-Moderación conserva hidden_at/hidden_by_user_id, deleted_at/deleted_by_user_id y revisión de
-reportes con fecha/revisor. Esas escrituras usan transacciones con los cambios de estado.
-Los logs incluyen actor y acción; exportar directorio registra actor, request id, conteo y
-presencia de búsqueda sin guardar el texto buscado.
+Moderation stores hidden_at/hidden_by_user_id, deleted_at/deleted_by_user_id, and report review
+time/reviewer. These writes share transactions with the state changes. Logs include actor and
+action. Directory exports log actor, request ID, count, and whether a search was supplied,
+without storing the search text.
 
-Curso usa fecha esperada para no sobrescribir autoguardado. Es control de concurrencia, no
-auditoría de versiones. Lecciones y otros comandos no tienen ese token. No hay tabla general
-de cambios, historial completo before/after, commandKey ni recibos transaccionales.
+Course updates use an expected timestamp to prevent autosave overwrites. This is concurrency
+control, not a version audit. Lessons and other commands do not carry that token. There is no
+general change table, complete before/after history, commandKey, or transactional receipt system.
 
-## Comandos futuros y aceptación
+## Future commands and acceptance
 
-Si se añaden roles granulares, cambio de rol, suspensión o envío masivo, definir permiso por
-acción, razón, estado esperado, repetición y campos auditables. El actor seguirá saliendo de
-la sesión y la escritura y auditoría deberán compartir la unidad transaccional pertinente.
-No habilitar una elevación mediante un campo del formulario de registro.
+If granular roles, role changes, suspension, or bulk email are added, define action permissions,
+reasons, expected state, repeat behavior, and auditable fields. Obtain the actor from the session
+and keep the change and relevant audit in one transaction. Never permit role elevation through
+a registration form field.
 
-La [matriz de integración](../../../tests/integration/postgres/admin_access_control.test.ts)
-recorre rutas sin sesión y con STUDENT. La aceptación también exige ausencia de secretos en
-JSON, verificación en las dos escrituras públicas del hilo, limpieza real de cuenta y bloqueo
-de contenido no publicado. Las pruebas no reemplazan la comprobación de configuración y
-dominio final de [producción](../../PRODUCTION_READINESS.md).
+The [integration matrix](../../../tests/integration/postgres/admin_access_control.test.ts)
+checks routes without a session and with STUDENT. Acceptance also requires secret-free JSON,
+verification on both public thread writes, persisted account cleanup, and hidden unpublished
+content. Tests do not replace verification of the final [production](../../PRODUCTION_READINESS.md)
+configuration and domain.

@@ -1,44 +1,36 @@
-# Documentación de Arxatec Academy Service
+# Arxatec Academy Service documentation
 
-Academy es el backend de formación de Arxatec: catálogo público, lecciones de video y artículo,
-cuentas de alumnos, progreso, comentarios y administración editorial. Esta documentación toma
-como referencia la organización de [Admin Service](../../../arxatec-admin/arxatec-admin-service/docs/README.md)
-y describe los contratos y las limitaciones de la implementación de Academy.
+Academy is Arxatec's learning backend: public catalog, video/article lessons, student accounts, progress, comments, and editorial administration. This documentation follows the organization of [Admin Service](../../../arxatec-admin/arxatec-admin-service/docs/README.md) while describing Academy's own contracts and implementation limits.
 
-## Guías generales
+## General guides
 
-| Documento                                            | Contenido                                                                    |
-| ---------------------------------------------------- | ---------------------------------------------------------------------------- |
-| [Arquitectura](ARCHITECTURE.md)                      | Arranque, módulos, responsabilidades, persistencia y límites entre slices    |
-| [Estilo de código](CODE_STYLING.md)                  | Nombres, TypeScript, imports, validación, respuestas y documentación         |
-| [Decisiones](DECISIONS.md)                           | Reglas del producto, alternativas y consecuencias de las decisiones técnicas |
-| [Contrato HTTP](API.md)                              | Rutas públicas, de alumno y administrativas; cuerpos, respuestas y errores   |
-| [Entorno](ENV.md)                                    | Variables, valores por defecto, dependencias opcionales y semilla            |
-| [Rendimiento](PERFORMANCE.md)                        | Consultas, memoria, límites y aspectos que requieren medición                |
-| [Pruebas](TESTING.md)                                | Comandos reales, fixtures, PostgreSQL desechable y smoke HTTP                |
-| [Despliegue](DEPLOYMENT.md)                          | Instalación, generación de Prisma, migraciones, ejecución y apagado          |
-| [Archivos](STORAGE.md)                               | Portadas, recursos y avatares; local y S3/CloudFront firmado                 |
-| [Preparación de producción](PRODUCTION_READINESS.md) | Evidencia disponible, comprobaciones pendientes y bloqueos conocidos         |
+| Document                                        | Contents                                                                   |
+| ----------------------------------------------- | -------------------------------------------------------------------------- |
+| [Architecture](ARCHITECTURE.md)                 | Startup, modules, responsibilities, persistence, and slice boundaries.     |
+| [Code style](CODE_STYLING.md)                   | Naming, TypeScript, imports, validation, responses, and documentation.     |
+| [Decisions](DECISIONS.md)                       | Product rules, alternatives, and consequences of technical decisions.      |
+| [HTTP contract](API.md)                         | Public, student, and administrative routes; bodies, responses, and errors. |
+| [Environment](ENV.md)                           | Variables, defaults, optional dependencies, and seed configuration.        |
+| [Performance](PERFORMANCE.md)                   | Queries, memory, limits, and areas requiring measurement.                  |
+| [Testing](TESTING.md)                           | Actual commands, fixtures, disposable PostgreSQL, and HTTP smoke tests.    |
+| [Deployment](DEPLOYMENT.md)                     | Installation, Prisma generation, migrations, execution, and shutdown.      |
+| [Files](STORAGE.md)                             | Covers, resources, and avatars; local and signed S3/CloudFront delivery.   |
+| [Production readiness](PRODUCTION_READINESS.md) | Available evidence, outstanding checks, and known blockers.                |
 
-## Módulos y contratos de producto
+## Product modules and contracts
 
-El índice de [planificación y alcance](planning/README.md) reúne fuentes Prisma, contratos,
-criterios de aceptación y pendientes por área. «Implementado» significa que existe código y una
-ruta registrada; la evidencia de ejecución se registra aparte. Crear un documento no completa
-una integración ni certifica un despliegue.
+The [planning and scope index](planning/README.md) collects Prisma sources, contracts, acceptance criteria, and remaining work by area. “Implemented” means code exists and a route is registered; execution evidence is recorded separately. Creating documentation does not complete an integration or certify a deployment.
 
-| Área          | Alcance y criterios                                                 | Documentación junto al código                                                                                                                    |
-| ------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Autenticación | [Registro, sesiones y Google](planning/auth/README.md)              | [auth](../src/modules/auth/docs/README.md)                                                                                                       |
-| Cursos        | [Catálogo y edición](planning/courses/README.md)                    | [courses](../src/modules/courses/docs/README.md), [admin_courses](../src/modules/courses/features/admin_courses/docs/README.md)                  |
-| Lecciones     | [Contenido, publicación y recursos](planning/lessons/README.md)     | [lessons](../src/modules/courses/features/lessons/docs/README.md), [admin_lessons](../src/modules/courses/features/admin_lessons/docs/README.md) |
-| Progreso      | [Inscripción y avance](planning/progress/README.md)                 | [progress](../src/modules/progress/docs/README.md)                                                                                               |
-| Comunidad     | [Hilos, reportes y moderación](planning/comments/README.md)         | [comments](../src/modules/comments/docs/README.md), [moderation](../src/modules/comments/features/moderation/docs/README.md)                     |
-| Usuarios      | [Perfil, baja y directorio](planning/users/README.md)               | [user](../src/modules/user/docs/README.md), [directory](../src/modules/user/features/directory/docs/README.md)                                   |
-| Avisos        | [Suscripciones y pedidos de tema](planning/notifications/README.md) | [notifications](../src/modules/notifications/docs/README.md)                                                                                     |
+| Area           | Scope and criteria                                                   | Documentation beside the code                                                                                                                    |
+| -------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Authentication | [Registration, sessions, and Google](planning/auth/README.md)        | [auth](../src/modules/auth/docs/README.md)                                                                                                       |
+| Courses        | [Catalog and editing](planning/courses/README.md)                    | [courses](../src/modules/courses/docs/README.md), [admin_courses](../src/modules/courses/features/admin_courses/docs/README.md)                  |
+| Lessons        | [Content, publication, and resources](planning/lessons/README.md)    | [lessons](../src/modules/courses/features/lessons/docs/README.md), [admin_lessons](../src/modules/courses/features/admin_lessons/docs/README.md) |
+| Progress       | [Enrollment and progress](planning/progress/README.md)               | [progress](../src/modules/progress/docs/README.md)                                                                                               |
+| Community      | [Threads, reports, and moderation](planning/comments/README.md)      | [comments](../src/modules/comments/docs/README.md), [moderation](../src/modules/comments/features/moderation/docs/README.md)                     |
+| Users          | [Profile, deletion, and directory](planning/users/README.md)         | [user](../src/modules/user/docs/README.md), [directory](../src/modules/user/features/directory/docs/README.md)                                   |
+| Notifications  | [Subscriptions and topic requests](planning/notifications/README.md) | [notifications](../src/modules/notifications/docs/README.md)                                                                                     |
 
-Consulta también las [definiciones de métricas](planning/metrics/README.md), la
-[matriz de acceso](planning/permissions_audit/README.md) y el [registro de entregas](shipped/README.md).
-Las rutas, schemas Zod, constantes y migraciones del servicio prevalecen ante una discrepancia.
-Los README de cada unidad conservan el porqué detallado; estas guías conectan las piezas sin
-depender de documentos de harness que no están incluidos en este repositorio.
+Also see [metric definitions](planning/metrics/README.md), the [access matrix](planning/permissions_audit/README.md), and [release history](shipped/README.md).
+
+Routes, Zod schemas, constants, and service migrations take precedence if documents disagree. Unit READMEs retain detailed rationale; these guides connect the pieces without depending on harness documents absent from this repository.

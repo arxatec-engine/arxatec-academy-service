@@ -1,37 +1,22 @@
-# Despliegue
+# Deployment
 
-El artefacto de Academy es `dist/server.js` con sus módulos compilados y dependencias de runtime.
-Requiere Node.js >=22.12, pnpm según `packageManager` y PostgreSQL con las migraciones de este
-servicio. Los comandos operativos cargan las variables con Infisical CLI, siguiendo el patrón
-de Admin y el proyecto indicado en `.infisical.json`.
+Academy's artifact is `dist/server.js` with compiled modules and runtime dependencies. It requires Node.js >=22.12, the pnpm version in `packageManager`, and PostgreSQL with this service's migrations. Operational commands load configuration through Infisical CLI >=0.43.145 and the project in `.infisical.yaml`.
 
-## Configuración del entorno
+## Environment configuration
 
-Instalar Infisical CLI y configurar su autenticación con acceso al proyecto del servicio.
-En el equipo local se usa `infisical login`; el despliegue debe proporcionar autenticación
-no interactiva para su entorno. Agregar las variables del backend en la raíz `/` de `prod`
-según [ENV](ENV.md). `dev` usa las variables del entorno `dev` para desarrollo.
-Dotenv puede cargar un `.env` local sin
-reemplazar valores inyectados. No desplegar credenciales de seed ni copiar el `.env` de otra
-aplicación. Mantener configuración del servidor, supervisor de procesos, certificados y secretos
-en el entorno operativo correspondiente.
+Install Infisical CLI >=0.43.145 and configure authentication authorized for the service project. Locally use `infisical login`; deployment must provide noninteractive authentication. Configure backend variables at `/` in `prod` as documented in [ENV](ENV.md). Development commands use `dev`.
 
-Como mínimo se necesitan `DATABASE_URL`, `JWT_SECRET`, `FRONTEND_URL`, `GOOGLE_CALLBACK_URL` y
-`EMAIL_FROM`. En producción fijar `NODE_ENV=production`, una sal propia en
-`NOTIFICATIONS_IP_HASH_SALT`, `EMAIL_TRANSPORT=smtp` y las variables `SMTP_HOST`, `SMTP_PORT`,
-`SMTP_SECURE`, `SMTP_USER` y `SMTP_PASSWORD` del servidor autorizado, además de
-`VIDEO_PROVIDER_DRIVER=live` cuando se editen videos reales. El arranque rechaza `log` en
-producción. `EMAIL_FROM` debe usar el buzón autenticado o un alias autorizado.
+Include `.infisical.yaml` in the release directory/container image. The script explicitly passes `project-id`, including with machine identities. `yaml` is a runtime dependency because `pnpm start` also reads it.
 
-Con `STORAGE_DRIVER=local`, preparar un volumen persistente escribible y la URL pública correcta.
-Con `STORAGE_DRIVER=s3`, completar bucket/región, dominio HTTPS de CloudFront y su clave de firma.
-El bucket debe ser privado con OAC y la distribución exigir URLs firmadas. Migrar los bytes
-con sus claves antes de cambiar el driver; comprobar permisos y enlaces reales según [STORAGE](STORAGE.md).
-Coordinar backups de PostgreSQL y archivos; restaurar solo uno puede dejar referencias rotas.
+Local `.env`, `.env.example`, and repository-local CloudFront PEM files are not distributed. Keep server configuration, process supervision, certificates, and secrets in the appropriate environment/secret manager. Never deploy seed credentials or copy another application's local configuration.
 
-## Compilación y migraciones
+At minimum provide `DATABASE_URL`, `JWT_SECRET`, `FRONTEND_URL`, `GOOGLE_CALLBACK_URL`, and `EMAIL_FROM`. Production requires `NODE_ENV=production`, a dedicated `NOTIFICATIONS_IP_HASH_SALT`, `EMAIL_TRANSPORT=smtp`, and the authorized server's `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, and `SMTP_PASSWORD`. Use `VIDEO_PROVIDER_DRIVER=live` for real video metadata. Startup rejects log email outside tests. `EMAIL_FROM` must be the authenticated mailbox or an authorized alias.
 
-En un directorio de release limpio y con acceso CLI al entorno `prod`:
+With `STORAGE_DRIVER=local`, provide a writable persistent volume and correct public URL. With S3, configure bucket/region, HTTPS CloudFront domain, and its signing key through Infisical or a mounted secret. Keep S3 private with OAC and require signed URLs on `/private/*`; `/public/*` permits unsigned reads. Migrate bytes under their existing keys before switching drivers and verify access as described in [STORAGE](STORAGE.md). Coordinate database/file backups; restoring only one can leave broken references.
+
+## Build and migrations
+
+From a clean release directory with CLI access to `prod`:
 
 ```sh
 pnpm install --frozen-lockfile
@@ -40,60 +25,34 @@ pnpm prisma:deploy
 pnpm start
 ```
 
-`build` es un alias de `build:prod`; `build:dev` usa `dev`. Ambos cargan Infisical antes de
-ejecutar `build:local`, que genera Prisma, compila TypeScript, reescribe aliases con `tsc-alias`
-y copia las fuentes de certificados a `dist/infrastructure/certificates/assets`.
-El build no limpia `dist` ni aplica migraciones. Usar un directorio limpio evita conservar
-JavaScript de archivos retirados. Conservar el lockfile y las herramientas de desarrollo durante
-el build. `start` inyecta las variables de `prod` al proceso compilado.
+`build` aliases `build:prod`; `build:dev` loads `dev`. Both run `build:local`, which generates Prisma, compiles TypeScript, rewrites aliases through `tsc-alias`, and copies certificate fonts/assets to `dist/infrastructure/certificates/assets`. Builds do not clean `dist` or apply migrations. A clean directory prevents JavaScript from removed source files surviving. Retain the lockfile and development tools during compilation. `start` injects `prod` configuration into the compiled process.
 
-Las variantes `build:local`, `start:local`, `prisma:migrate:local` y `prisma:deploy:local`
-permiten usar un entorno ya inyectado por la infraestructura o un `.env` local.
+`build:local`, `start:local`, `prisma:migrate:local`, and `prisma:deploy:local` support an environment already injected by infrastructure without querying Infisical.
 
-El esquema se lee de `prisma/schema`; las migraciones viven en `prisma/migrations`. El comando
-`pnpm prisma:migrate` carga `dev` y usa `migrate dev`. Para un despliegue, `pnpm prisma:deploy`
-carga `prod` y aplica migraciones versionadas con `migrate deploy`, después de revisar cambios y respaldo. La semilla
-no es un paso de producción y aborta con `NODE_ENV=production`.
+The schema lives in `prisma/schema`, migrations in `prisma/migrations`. `pnpm prisma:migrate` loads `dev` and runs `migrate dev`; production `pnpm prisma:deploy` loads `prod` and applies versioned migrations through `migrate deploy` after review and backup. Apply `20261021030000_storage_deletions` before starting this backend: its table and triggers support durable cleanup, including cascades. `db push` does not install those triggers. Seeding is not a production step and aborts with `NODE_ENV=production`.
 
-## Proxy, origen y archivos
+## Proxy, origin, and files
 
-Express configura `trust proxy` a un salto de manera fija. La topología debe corresponder a ese
-valor y preservar la IP del cliente de forma confiable; no existe `TRUST_PROXY` en el esquema de
-Academy. Los límites por IP dependen de ese dato.
+Express fixes `trust proxy` at one hop. Deployment topology must match and preserve client IP reliably; Academy has no `TRUST_PROXY` variable. IP rate limits depend on this setting.
 
-CORS acepta el origen calculado desde `FRONTEND_URL` y solicitudes sin Origin. No es una lista
-separada de múltiples dominios. El proxy termina HTTPS, reenvía las cabeceras necesarias y debe
-permitir multipart de hasta 20 MiB más su envoltorio para recursos. JSON y urlencoded conservan
-el límite de 1 MiB de Express.
+CORS accepts the origin derived from `FRONTEND_URL` and requests without Origin, not a separate multi-domain list. The reverse proxy terminates HTTPS, forwards required headers, and allows resource multipart requests up to 20 MiB plus framing. JSON and urlencoded retain Express's 1 MiB limits.
 
-Con driver local, `/files` sirve archivos públicos sin Bearer. Verificar que `STORAGE_PUBLIC_URL`
-sea alcanzable desde el navegador y se conserve al reemplazar una release. Las filas con clave resuelven URLs desde la base vigente; las filas sin clave conservan su URL. Detalles en [STORAGE](STORAGE.md).
+With local storage, `/files` is public without Bearer. Ensure `STORAGE_PUBLIC_URL` is browser-reachable and the volume survives releases. Keyed rows resolve against the current base; keyless rows retain their URL. See [STORAGE](STORAGE.md).
 
-## Verificación tras iniciar
+## Post-start verification
 
 ```sh
 curl --fail --silent --show-error http://127.0.0.1:3001/ping
 ```
 
-`PORT` puede cambiar 3001. `/ping` responde texto y comprueba la ruta HTTP; no consulta PostgreSQL.
-No existen `/health/live` ni `/health/ready` como en Admin, ni un chequeo de base antes de escuchar.
-La verificación de disponibilidad necesita además una consulta inocua al catálogo o a una sesión
-de revisión autorizada. No crear cuentas ni publicar contenido solo para probar un deploy real.
+`PORT` may override 3001. `/ping` returns text and checks HTTP only; it does not query PostgreSQL. There are no Admin-style `/health/live` or `/health/ready` routes and no database check before listening. Verify data availability separately through a harmless catalog read or an authorized review session. Do not create accounts or publish content solely to test a real deployment.
 
-Revisar acceso anónimo al catálogo, denegación administrativa sin Bearer, CORS del origen final,
-lectura de archivos y entrega de correos con fixtures controladas. Google exige que callback y
-origen coincidan con la configuración del proveedor. Probar reproducción desde el dominio final:
-oEmbed no certifica todas las restricciones de inserción.
+Review anonymous catalog access, denied administration without Bearer, final-origin CORS, file reads, and email delivery with controlled fixtures. Google requires callback/origin agreement with provider configuration. Test playback from the final domain: oEmbed does not certify every embed restriction. Confirm cleanup queue processing and S3 deletion using disposable owned fixtures.
 
-## Apagado, actualización y recuperación
+## Shutdown, upgrades, and recovery
 
-SIGTERM/SIGINT activan el cierre en orden inverso al registro: HTTP, Prisma y transporte de correo.
-Hay watchdog de diez segundos. Comprobar que el supervisor dé tiempo para completar el cierre
-y que los pools no mantengan la release anterior viva.
+SIGTERM/SIGINT close resources in reverse registration order: HTTP, storage cleanup worker, Prisma, then email. The watchdog is ten seconds. Ensure process supervision allows orderly closure; interrupted cleanup jobs remain persisted and can be recovered after their lease expires.
 
-Un rollback de código no revierte automáticamente el esquema. Revisar compatibilidad de la
-release anterior con las migraciones aplicadas; los cambios de datos requieren un procedimiento
-propio. No sustituir ese procedimiento por `db push`, reset o un seed contra producción.
+Code rollback does not automatically reverse the schema. Review compatibility of the previous release with applied migrations; data changes need their own recovery procedure. Do not replace that procedure with `db push`, reset, or a production seed.
 
-El [informe de preparación](PRODUCTION_READINESS.md) separa lo implementado de lo que aún requiere
-verificación operativa. Esta guía describe el procedimiento; no afirma que se haya desplegado.
+[Production readiness](PRODUCTION_READINESS.md) separates implementation from operational verification still required. This guide describes release preparation and does not claim that a deployment has occurred.

@@ -1,84 +1,54 @@
-# Comunidad: hilos, reportes y moderación
+# Community: threads, reports, and moderation
 
-**Estado:** implementado. [Módulo](../../../src/modules/comments/docs/README.md) ·
-[Moderación](../../../src/modules/comments/features/moderation/docs/README.md) · [Índice](../README.md).
-La misma tabla sirve al hilo público y a la respuesta editorial del equipo.
+**Status:** implemented. [Module](../../../src/modules/comments/docs/README.md) · [Moderation](../../../src/modules/comments/features/moderation/docs/README.md) · [Index](../README.md).
 
-## Modelo y superficie pública
+The same table serves public threads and editorial team replies.
 
-`comments` identifica lección, autor nullable, padre nullable, cuerpo y estado
-VISIBLE/HIDDEN/DELETED. `comment_reports` deduplica por comentario/reportante y conserva motivo,
-fecha de revisión y revisor. Una respuesta apunta a una raíz; el service rechaza responder
-a otra respuesta.
+## Model and public surface
 
-| Método/ruta bajo `/api/v1`           | Acceso                     | Resultado                           |
-| ------------------------------------ | -------------------------- | ----------------------------------- |
-| `GET /lessons/:lesson_id/comments`   | Público                    | 200 con comments y replies visibles |
-| `POST /lessons/:lesson_id/comments`  | Bearer + correo verificado | 201 con comment                     |
-| `POST /comments/:comment_id/replies` | Bearer + correo verificado | 201 con comment                     |
-| `POST /comments/:comment_id/report`  | Bearer                     | 200 sin data, repetible             |
+comments identifies lesson, nullable author/parent, body, and VISIBLE/HIDDEN/DELETED state. comment_reports deduplicates comment/reporter and retains reason, review date, and reviewer. Replies point to roots; services reject replies to replies.
 
-Cuerpo `body` se recorta y exige 1–2000 caracteres. Es texto plano: que contenga etiquetas no
-lo transforma en HTML seguro para renderizar. `reason` es opcional hasta 280. Los ids tienen
-tope 64 en las acciones públicas. Comentarios y respuestas públicas comparten 5 escrituras/h
-por usuario; reportar no tiene ese limitador específico.
+| Method/route under /api/v1         | Access                  | Result                        |
+| ---------------------------------- | ----------------------- | ----------------------------- |
+| GET /lessons/:lesson_id/comments   | Public                  | 200 visible comments/replies. |
+| POST /lessons/:lesson_id/comments  | Bearer + verified email | 201 comment.                  |
+| POST /comments/:comment_id/replies | Bearer + verified email | 201 comment.                  |
+| POST /comments/:comment_id/report  | Bearer                  | 200 without data, repeatable. |
 
-El listado devuelve id, parent_id, body, created_at y author nullable con full_name, avatar_url,
-affiliation e is_team. Excluye correo, user_id y sesión. affiliation usa independencia u
-organización según el perfil; is_team consulta el rol actual. Cambiar un rol cambia la insignia
-de lo ya escrito.
+body is trimmed and limited to 1–2000 characters. It is plain text; tags do not make it safe HTML to render. reason is optional, max 280. Public-action IDs max 64. Comments/replies share five public writes/hour/user; reports do not use that specific limiter.
 
-El hilo se construye con raíces visibles y sus respuestas visibles. Si se oculta/borra la raíz,
-sus respuestas dejan de aparecer aunque sigan teniendo estado VISIBLE. No hay paginación
-pública. Una lección no publicada no se entrega por el listado de hilo.
+Lists return id, parent_id, body, created_at, and nullable author with full_name, avatar_url, affiliation, and is_team, excluding email, user_id, and session data. Affiliation uses independent status or organization; is_team reads the current role, so role changes update badges on existing comments.
 
-## Herramientas administrativas
+Threads contain visible roots and visible replies. Hiding/deleting roots removes replies from public projections even when reply state remains VISIBLE. Public threads are unpaginated; unpublished lessons do not expose threads.
 
-`/admin/comments` exige sesión y ADMIN. Las escrituras de moderación comparten 60/h por actor.
+## Administration tools
 
-| Acción                             | Entrada                                     | Resultado                          |
-| ---------------------------------- | ------------------------------------------- | ---------------------------------- |
-| `GET /admin/comments`              | tab recent/reported/hidden, page, page_size | comments, counts y pagination      |
-| `GET /admin/comments/counts`       | —                                           | counts pending/reported            |
-| `POST /admin/comments/:id/replies` | body                                        | 201 con comment y counts           |
-| `PATCH /admin/comments/:id/status` | status VISIBLE/HIDDEN                       | 200 con id/status y counts         |
-| `DELETE /admin/comments/:id`       | —                                           | 200 con id/status DELETED y counts |
+/admin/comments requires active sessions and ADMIN. Moderation writes share 60/hour/actor.
 
-Página empieza en 1; tamaño por defecto 20 y máximo 50. Pagination contiene page, page_size,
-total y has_next. El DTO agrega referencia de curso/lección, report_count, is_reply,
-is_answered nullable e is_public. No reutilizar la respuesta administrativa como autor público.
+| Action                           | Input                                       | Result                        |
+| -------------------------------- | ------------------------------------------- | ----------------------------- |
+| GET /admin/comments              | tab recent/reported/hidden, page, page_size | comments, counts, pagination. |
+| GET /admin/comments/counts       | —                                           | pending/reported counts.      |
+| POST /admin/comments/:id/replies | body                                        | 201 comment/counts.           |
+| PATCH /admin/comments/:id/status | VISIBLE/HIDDEN                              | 200 id/status/counts.         |
+| DELETE /admin/comments/:id       | —                                           | 200 id/DELETED/counts.        |
 
-`recent` lista visibles de autores que actualmente no son ADMIN; `reported` prioriza reportes
-sin revisar por la primera fecha; `hidden` ordena por fecha de ocultación. No son tres formas
-de contar todos los comentarios del producto.
+Pages start at 1; default size 20, max 50. Pagination contains page, page_size, total, has_next. DTOs add course/lesson references, report_count, is_reply, nullable is_answered, and is_public. Administrative responses are not public-author DTOs.
 
-## Contadores, revisión y trazabilidad
+recent lists visible comments by current non-ADMIN authors; reported prioritizes unreviewed reports by first date; hidden sorts by hidden date. These are not three ways of counting every product comment.
 
-`reported` cuenta comentarios VISIBLE con al menos un reporte no revisado, no número de reportes.
-`pending` cuenta la unión de esos comentarios y raíces VISIBLE de autor no ADMIN sin respuesta
-VISIBLE del equipo. No sumar pending + reported: los conjuntos se solapan. Los detalles están
-en [métricas](../metrics/README.md).
+## Counters, review, and traceability
 
-Cambiar status revisa los reportes abiertos en la misma transacción. Ocultar guarda actor y
-fecha al cambiar hacia HIDDEN; volver a visible no borra el historial de ocultación. Borrar es
-lógico y revisa reportes. Repetir DELETE devuelve el estado DELETED; intentar PATCH de estado
-sobre uno borrado devuelve 409 COMMENT_ALREADY_DELETED.
+reported counts VISIBLE comments with at least one unreviewed report, not report rows. pending unions those with VISIBLE non-ADMIN roots lacking a VISIBLE team reply. Do not add pending + reported because they overlap. See [metrics](../metrics/README.md).
 
-La respuesta administrativa solo admite una raíz visible. No añade un requisito de email
-verificado al ADMIN, a diferencia de las rutas públicas. Hay logs con actor/acción y columnas
-de trazabilidad; no existe una bitácora general inmutable con recibos como en Admin.
+Status changes review open reports in the same transaction. Transitioning to HIDDEN records actor/date; restoring visibility does not erase hiding history. Deletion is logical and reviews reports. Repeating DELETE returns DELETED; status PATCH on a deleted comment returns 409 COMMENT_ALREADY_DELETED.
 
-## Baja, pruebas y pendientes
+Administrative replies require visible roots but do not add verified-email middleware for ADMIN, unlike public reply routes. Actor/action logs and traceability columns exist; there is no generic immutable Admin-equivalent audit log with receipts.
 
-La FK de autor usa SetNull para borrado directo de usuario, pero la baja HTTP invoca una
-limpieza explícita que borra comentarios propios; la cascada del padre puede eliminar respuestas.
-Ver [modelo de datos](../data_model/README.md). No prometer anonimización en ese endpoint.
+## Deletion, tests, and follow-up
 
-[comments_flow](../../../tests/integration/postgres/comments_flow.test.ts) y
-[admin_moderation_flow](../../../tests/integration/postgres/admin_moderation_flow.test.ts) comprueban
-visibilidad, reportes, verificación e insignias. La limpieza de la suite afecta los hilos de
-lecciones sembradas, por lo que se ejecuta en base desechable.
+The author FK uses SetNull for direct user deletion, but HTTP account deletion explicitly removes owned comments first. Parent cascades may remove replies. See [data model](../data_model/README.md); that endpoint does not promise anonymization.
 
-Quedan fuera edición propia, respuestas multinivel, votos, suscripciones al hilo y eventos de
-moderación generales. Las rutas administrativas agrupadas necesitan separación por acción;
-el crecimiento del hilo requerirá un contrato de paginación compatible con respuestas.
+[comments_flow](../../../tests/integration/postgres/comments_flow.test.ts) and [admin_moderation_flow](../../../tests/integration/postgres/admin_moderation_flow.test.ts) cover visibility, reports, verification, and badges. Suite cleanup affects seeded lesson threads, requiring disposable data.
+
+Self-editing, nested replies, voting, thread subscriptions, and generic moderation events are out of scope. Grouped administrative routes need per-action separation; thread growth will need reply-compatible pagination.

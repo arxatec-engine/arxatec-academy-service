@@ -1,62 +1,45 @@
-# Reutilización de endpoints y límites entre productos
+# Endpoint reuse and product boundaries
 
-**Estado:** inventario de rutas implementadas. [API](../../API.md) · [Índice](../README.md).
-Compartir la arquitectura con Admin no comparte identidades, permisos o DTOs.
+**Status:** inventory of implemented routes. [API](../../API.md) · [Index](../README.md).
 
-## Identidades y prefijos reales
+Shared architecture with Admin does not share identities, permissions, or DTOs.
 
-Academy recibe JWT Bearer y consulta auth_sessions de Academy. Admin usa su propia identidad
-y cookie; Lawyer tiene sus reglas de producto. Un nombre/email igual en otra base no vincula
-actores automáticamente. No enviar cookies de Admin ni JWT de Lawyer a rutas Academy.
+## Actual identities and prefixes
 
-El panel editorial de Academy usa `/api/v1/admin` del mismo servicio. El prefijo indica
-autorización ADMIN de Academy, no una delegación a arxatec-admin-service.
+Academy accepts JWT Bearer and queries Academy auth_sessions. Admin has its own identity/cookie; Lawyer has its own product rules. Matching names/emails in another database do not automatically link actors. Do not send Admin cookies or Lawyer JWTs to Academy routes.
 
-## Qué reutiliza cada pantalla
+Academy's editorial panel uses this service's /api/v1/admin. The prefix denotes Academy ADMIN authorization, not delegation to arxatec-admin-service.
 
-| Necesidad              | Endpoint/contrato existente                    | Evita                                                      |
-| ---------------------- | ---------------------------------------------- | ---------------------------------------------------------- |
-| Explorar cursos        | GET /courses y /courses/:slug                  | Copiar catálogo al directorio o a otro backend             |
-| Abrir contenido        | GET /courses/:course_slug/lessons/:lesson_slug | Leer el editor admin para obtener contenido del alumno     |
-| Identidad de operación | lesson.id del temario                          | Adivinar ids desde slugs o consultar Prisma desde frontend |
-| Cuenta actual          | GET /auth/me; PATCH /me/profile para editar    | Usar listado administrativo para iniciar sesión            |
-| Aprendizaje personal   | /me/courses y /me/summary                      | Presentar globales del directorio como estado individual   |
-| Editar contenido       | /admin/courses y /admin/lessons                | Dar capacidad de escritura al endpoint público             |
-| Responder como equipo  | /admin/comments/:id/replies                    | Elevar el rol a partir de un campo del comentario          |
-| Exportar usuarios      | /admin/users/export                            | Descargar páginas y construir un CSV distinto en navegador |
-| Administrar avisos     | /admin/notifications                           | Mezclar directorio de cuentas con altas anónimas           |
+## Existing contracts by screen
 
-Las consultas públicas/editoriales de cursos seleccionan proyecciones diferentes aunque lean
-las mismas tablas. Mantener las dos superficies preserva acceso a borradores y contenido
-bloqueado sin obligar al cliente a ocultarlo visualmente.
+| Need                 | Existing endpoint/contract                     | Avoids                                                    |
+| -------------------- | ---------------------------------------------- | --------------------------------------------------------- |
+| Browse courses       | GET /courses and /courses/:slug                | Copying catalog into a directory/other backend.           |
+| Open content         | GET /courses/:course_slug/lessons/:lesson_slug | Reading the admin editor for student content.             |
+| Operational identity | Syllabus lesson.id                             | Guessing IDs from slugs or querying Prisma from frontend. |
+| Current account      | GET /auth/me; PATCH /me/profile                | Using administrative lists for sign-in.                   |
+| Personal learning    | /me/courses and /me/summary                    | Presenting directory globals as individual state.         |
+| Edit content         | /admin/courses and /admin/lessons              | Giving public endpoints write privileges.                 |
+| Team replies         | /admin/comments/:id/replies                    | Elevating roles from a comment field.                     |
+| User export          | /admin/users/export                            | Downloading pages to build a different browser CSV.       |
+| Manage notifications | /admin/notifications                           | Mixing account directories and anonymous subscriptions.   |
 
-## Reutilización dentro del backend
+Public/editorial course queries use different projections over the same tables. Retain both surfaces to protect drafts/locked content rather than making clients hide it visually.
 
-Auth publica identidad/sesiones en shared; courses publica referencias de curso/lección;
-progress publica conteo de cierres y limpieza para user; comments publica limpieza de datos
-propios. Cada operación conserva la transacción que necesita mediante cliente tx explícito.
+## Reuse inside the backend
 
-No importar un data privado de otra acción o módulo para ahorrar un archivo. Los DTOs de
-lectura no son una API interna de persistencia: un ref mínimo con estado/id sirve mejor al
-progreso que devolver todo el artículo o el editor.
+Auth publishes identity/sessions through shared; courses publishes course/lesson references; progress publishes closure counts and cleanup for user; comments publishes owned-data cleanup. Explicit transaction clients preserve each operation's needed atomicity.
 
-## Contratos que no son equivalentes
+Do not import another action/module's private data layer to save a file. Read DTOs are not an internal persistence API; a minimal state/ID reference serves progress better than returning whole articles/editors.
 
-El total de cursos cerrados del directorio no equivale a Mis cursos completed; el primero usa
-fechas persistidas y el segundo exige estar al día. La paginación de usuarios está en meta y
-la de avisos/moderación en data. Sus filtros tampoco tienen los mismos nombres.
+## Nonequivalent contracts
 
-POST /notifications/topics incrementa demanda al repetir; signup deduplica. Moderation DELETE
-es lógico y devuelve 200; DELETE de lección es físico y devuelve 204. No construir un adaptador
-universal suponiendo la misma semántica para todos los recursos.
+Directory closure totals differ from My courses completed: one uses retained dates, the other requires current syllabus completion. User pagination is in meta; notification/moderation pagination is in data, with different filter names.
 
-## Integraciones futuras
+Repeating POST /notifications/topics increments demand; signup deduplicates. Moderation DELETE is logical/200; lesson DELETE is physical/204. Do not build universal adapters that assume identical semantics for every resource.
 
-Si Admin necesita métricas Academy, diseñar una identidad interna y un contrato propio con
-campos/alcance acotados; no se ha implementado aquí un puente M2M ni un reader secundario.
-Tampoco hay catálogo externo de planes ni feed de releases que deba aparecer por similitud
-con Admin. Verificar propiedad de datos, permisos y cambios coordinados antes de compartirlos.
+## Future integrations
 
-La aceptación es reutilizar lo que existe sin ampliar permisos, conservar mappers y vacíos,
-y evitar dos definiciones incompatibles del mismo conteo. Cambiar un contrato requiere
-actualizar consumidor, documentación y pruebas juntos.
+If Admin needs Academy metrics, design an internal identity and bounded contract. There is no M2M bridge or secondary reader here. Similarity to Admin does not imply an external plan catalog or release feed. Verify ownership, permissions, and coordinated changes before sharing data.
+
+Acceptance means reusing existing contracts without expanding permissions, preserving mappers/empty states, and avoiding incompatible definitions of one count. Update consumer, docs, and tests together for contract changes.

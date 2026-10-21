@@ -1,12 +1,12 @@
 import type { z } from 'zod';
 
-import { logger } from '@/config/logger';
 import { ErrorCodes } from '@/constants/error_codes';
 import { FileUsages } from '@/constants/files';
 import { HttpStatusCodes } from '@/constants/http_status_codes';
 import { AdminLessonMessages } from '@/constants/messages/admin_lessons';
 import { lesson_status, lesson_type, video_provider } from '@/generated/enums';
 import { resolveStoredFileUrl } from '@/infrastructure/storage/file_url';
+import { removeStoredFile } from '@/infrastructure/storage/cleanup';
 import { storage } from '@/infrastructure/storage/storage';
 import { buildStorageKey } from '@/infrastructure/storage/storage_key';
 import { validateUpload } from '@/infrastructure/storage/validate_upload';
@@ -14,7 +14,7 @@ import { probeVideo } from '@/infrastructure/video/probe_video';
 import type { UploadedFile } from '@/utils/uploaded_file';
 import { probeVideoSchema, type createAdminLessonSchema, type updateAdminLessonSchema } from '@/modules/courses/features/admin_lessons/domain/admin_lessons.schema';
 import {
-  countResourceFileReferences, createAdminLesson, createAdminResource, deleteAdminLesson,
+  createAdminLesson, createAdminResource, deleteAdminLesson,
   deleteAdminResource, findLessonSlug, getAdminLesson, getAdminResource,
   getCourseForLessons, lessonStudentDataCounts, listAdminLessons, moveFreeSample,
   reorderAdminLessons, reorderAdminResources, updateAdminLesson, updateAdminResource,
@@ -241,12 +241,6 @@ export const unpublishAdminLessonService = async (id: string) => {
   return getAdminLessonService(id);
 };
 
-const removeFileIfUnused = async (file_key: string): Promise<void> => {
-  if (await countResourceFileReferences(file_key) > 0) {return;}
-  try { await storage.remove(file_key); }
-  catch (error) { logger.warn({ err: error }, AdminLessonMessages.resource_remove_failed); }
-};
-
 export const deleteAdminLessonService = async (id: string, confirmed: boolean) => {
   const row = await required(id);
   if (row.status === lesson_status.PUBLISHED) {
@@ -258,7 +252,7 @@ export const deleteAdminLessonService = async (id: string, confirmed: boolean) =
       ErrorCodes.LESSON_HAS_STUDENT_DATA, counts);
   }
   const keys = await deleteAdminLesson(id, row.course_id);
-  for (const key of keys) {await removeFileIfUnused(key);}
+  for (const key of new Set(keys)) {await removeStoredFile(key);}
 };
 
 export const reorderAdminLessonsService = async (course_id: string, ids: readonly string[]) => {
@@ -287,7 +281,7 @@ export const createAdminResourceService = async (lesson_id: string, title: strin
       mime_type: stored.mime_type, size_bytes: stored.size_bytes,
     });
   } catch (error) {
-    await storage.remove(stored.key);
+    await removeStoredFile(stored.key);
     throw error;
   }
   return { resource: { id: row.id, title: row.title, file_url: resolveStoredFileUrl(row.file_url, row.file_key),
@@ -310,7 +304,7 @@ export const updateAdminResourceService = async (lesson_id: string, id: string, 
 export const deleteAdminResourceService = async (lesson_id: string, id: string) => {
   await requiredResource(lesson_id, id);
   const row = await deleteAdminResource(lesson_id, id);
-  if (row.file_key !== null) {await removeFileIfUnused(row.file_key);}
+  await removeStoredFile(row.file_key);
 };
 export const reorderAdminResourcesService = async (lesson_id: string, ids: readonly string[]) => {
   await required(lesson_id);

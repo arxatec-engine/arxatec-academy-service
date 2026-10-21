@@ -14,6 +14,9 @@ en una sola transacción. Publicar requiere una lección publicada y descripcion
 Archivar oculta del catálogo, no borra progreso. El duplicado copia lecciones y recursos como
 borradores. La portada exige PNG/JPEG/WebP horizontal de al menos 1200 × 750 píxeles; su clave
 privada permite retirar la anterior tras sustituirla.
+La portada anterior se registra en la cola de limpieza dentro de la transacción del reemplazo;
+si S3 falla, el servidor la reintenta. El borrado real de una fila de curso también registra su
+portada y los recursos de las lecciones eliminadas en cascada. Archivar conserva esos archivos.
 
 La integración real está en `tests/integration/postgres/admin_courses_flow.test.ts`. El guion
 `scripts/smoke_backend.sh` recorre creación, edición, portada, publicación y archivo con `curl`.

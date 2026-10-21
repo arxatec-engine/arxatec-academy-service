@@ -1,117 +1,82 @@
-# Variables de entorno
+# Environment variables
 
-La fuente ejecutable es [src/config/env.ts](../src/config/env.ts). Dotenv lee `.env` sin
-reemplazar variables ya inyectadas; los valores vacíos se descartan antes de validar. El esquema
-Zod falla al importar configuración si faltan valores obligatorios.
+The executable source is [src/config/env.ts](../src/config/env.ts). Variables already injected into the process take priority. Empty values are discarded before validation, and Zod rejects missing required configuration when imported. Local `.env` and PEM files are not included; use Infisical or your deployment platform's injected environment and managed secrets.
 
 ## Infisical
 
-Los scripts leen el `workspaceId` de `.infisical.json` y lo pasan como `--projectId`, siguiendo
-el patrón de Admin con pnpm. Instala Infisical CLI y ejecuta `infisical login` en el equipo
-local con acceso al proyecto del servicio. El proyecto del frontend se configura por separado.
-Agrega las variables de esta guía en la raíz `/` de los entornos `dev` y `prod`.
+The `infisical` script reads `secrets-management.project-id` from `.infisical.yaml` using `yaml` and passes it to the CLI as `--projectId`, including for machine identities. Infisical CLI >=0.43.145 is required in development, CI, and deployment. Run `infisical login` locally with access to the service project. The frontend project is configured separately. Add this guide's variables at `/` in `dev` and `prod`.
 
-| Comando                                                            | Entorno de Infisical                    |
-| ------------------------------------------------------------------ | --------------------------------------- |
-| `pnpm dev` / `pnpm build:dev`                                      | `dev`                                   |
-| `pnpm build:prod` / `pnpm build` / `pnpm start`                    | `prod`                                  |
-| `pnpm prisma:migrate`                                              | `dev`; ejecuta `prisma migrate dev`     |
-| `pnpm prisma:deploy`                                               | `prod`; ejecuta `prisma migrate deploy` |
-| `pnpm seed` / `pnpm seed:exams` / `pnpm storage:check:development` | `dev`                                   |
+| Command                                                            | Infisical environment                 |
+| ------------------------------------------------------------------ | ------------------------------------- |
+| `pnpm dev` / `pnpm build:dev`                                      | `dev`.                                |
+| `pnpm build:prod` / `pnpm build` / `pnpm start`                    | `prod`.                               |
+| `pnpm prisma:migrate`                                              | `dev`; runs `prisma migrate dev`.     |
+| `pnpm prisma:deploy`                                               | `prod`; runs `prisma migrate deploy`. |
+| `pnpm seed` / `pnpm seed:exams` / `pnpm storage:check:development` | `dev`.                                |
 
-Las tareas tienen variantes `:local` que usan el entorno existente y el `.env` de la raíz,
-sin consultar Infisical. `build:local` y `dev:local` generan el cliente Prisma antes de ejecutar
-su tarea. `prisma:generate`, lint, tipos y tests siguen usando el entorno existente.
-Para archivos locales, copia [.env.example](../.env.example) a `.env`. No hay carga especial de
-`.env.local`. Las variables inyectadas tienen prioridad y Dotenv solo completa las ausentes.
+`:local` variants use the existing process environment without fetching Infisical. `build:local` and `dev:local` generate Prisma before their task. `prisma:generate`, lint, type checks, and tests also use the existing environment. Native Dotenv support remains in the code, but this repository supplies no `.env` or `.env.example`; there is no special `.env.local` loading in the backend.
 
-Configura `NODE_ENV=development` en `dev` y `NODE_ENV=production` en `prod`: el nombre del entorno
-Infisical no sustituye esa variable de Node. Las variables `SEED_*` se validan aparte al ejecutar
-la semilla y corresponden al entorno de desarrollo.
+Set `NODE_ENV=development` in `dev` and `NODE_ENV=production` in `prod`: an Infisical environment name does not replace Node's variable. `SEED_*` is separately validated when running the development seed.
 
-Se mantiene `CLOUDFRONT_ACADEMY_PRODUCT_PRIVATE_KEY_PATH=./.cloudfront.private.pem` para la firma
-desde archivo. El PEM debe existir en la raíz del servicio al ejecutar; guardar la ruta en
-Infisical no crea el archivo. Con esta opción, deja sin definir la variable de clave inline.
+For CloudFront signing, store the inline private key in Infisical or configure a path mounted by the deployment secret manager. A path value does not create a file. Set exactly one private-key source; never rely on deleted repository-local PEM files.
 
-## Servidor y base de datos
+## Server and database
 
-| Variable       | Obligatoria | Default       | Regla y uso                                                                       |
-| -------------- | ----------- | ------------- | --------------------------------------------------------------------------------- |
-| `NODE_ENV`     | No          | `development` | `development`, `test` o `production`; controla formato de logs y algunos defaults |
-| `PORT`         | No          | `3001`        | Entero 1–65535, puerto HTTP                                                       |
-| `LOG_LEVEL`    | No          | `info`        | `fatal`, `error`, `warn`, `info`, `debug`, `trace` o `silent`                     |
-| `DATABASE_URL` | Sí          | —             | Cadena no vacía de PostgreSQL para aplicación, migraciones y tests de integración |
+| Variable       | Required | Default       | Rule and purpose                                                                      |
+| -------------- | -------- | ------------- | ------------------------------------------------------------------------------------- |
+| `NODE_ENV`     | No       | `development` | `development`, `test`, or `production`; controls logs and some defaults.              |
+| `PORT`         | No       | `3001`        | Integer 1–65535; HTTP port.                                                           |
+| `LOG_LEVEL`    | No       | `info`        | `fatal`, `error`, `warn`, `info`, `debug`, `trace`, or `silent`.                      |
+| `DATABASE_URL` | Yes      | —             | Nonempty PostgreSQL connection string for the app, migrations, and integration tests. |
 
-El [Compose local](../docker-compose.yml) fija usuario/base/contraseña de desarrollo y publica
-PostgreSQL 16 en `5444`. No toma esos valores de `DATABASE_URL`: la URL del cliente debe apuntar
-al contenedor que Compose configura. El volumen conserva datos entre reinicios.
+[Local Compose](../docker-compose.yml) fixes development user/database/password and exposes PostgreSQL 16 on `5444`. It does not read those settings from `DATABASE_URL`; client configuration must match the container. Its volume persists data across restarts.
 
-```dotenv
+```text
 DATABASE_URL=postgresql://arxatec:arxatec@localhost:5444/arxatec_academy?schema=public
 ```
 
-Es una configuración pública de desarrollo, no una credencial de producción. Para integración,
-exportar una `DATABASE_URL` de base desechable: `TEST_DATABASE_URL` no es consumida por la suite
-actual. [TESTING](TESTING.md) explica preparación y limpieza.
+This is public development configuration, not a production credential. Integration must export a disposable database's `DATABASE_URL`; the current suite does not consume `TEST_DATABASE_URL`. [TESTING](TESTING.md) covers provisioning and cleanup.
 
-`trust proxy` está fijado a un salto en `ServerPolicy`; no existe una variable `TRUST_PROXY`.
-Tampoco existen variables de presupuesto del pool o de la cola Argon2 en el esquema actual.
+`trust proxy` is fixed at one hop in `ServerPolicy`; there is no `TRUST_PROXY` variable. The schema also has no pool-budget or Argon2-queue variables.
 
-## Identidad JWT y frontend
+## JWT identity and frontend
 
-| Variable               | Obligatoria          | Default           | Regla y uso                                                                     |
-| ---------------------- | -------------------- | ----------------- | ------------------------------------------------------------------------------- |
-| `JWT_SECRET`           | Sí                   | —                 | Mínimo 32 caracteres; firma HS256 de sesiones y state OAuth                     |
-| `JWT_ISSUER`           | No                   | `arxatec-academy` | Identificador `iss`, no vacío                                                   |
-| `FRONTEND_URL`         | Sí                   | —                 | URL absoluta; origen CORS, enlaces de correo, certificados y redirección Google |
-| `GOOGLE_CALLBACK_URL`  | Sí                   | —                 | URL absoluta del callback backend, incluso si no se usa Google                  |
-| `GOOGLE_CLIENT_ID`     | Para utilizar Google | —                 | Identificador de la aplicación OAuth                                            |
-| `GOOGLE_CLIENT_SECRET` | Para utilizar Google | —                 | Secreto OAuth del backend                                                       |
+| Variable               | Required      | Default           | Rule and purpose                                                            |
+| ---------------------- | ------------- | ----------------- | --------------------------------------------------------------------------- |
+| `JWT_SECRET`           | Yes           | —                 | At least 32 characters; HS256 session and OAuth-state signing.              |
+| `JWT_ISSUER`           | No            | `arxatec-academy` | Nonempty `iss` identifier.                                                  |
+| `FRONTEND_URL`         | Yes           | —                 | Absolute URL; CORS origin, email links, certificates, and Google redirects. |
+| `GOOGLE_CALLBACK_URL`  | Yes           | —                 | Absolute backend callback URL, even if Google is unused.                    |
+| `GOOGLE_CLIENT_ID`     | To use Google | —                 | OAuth application identifier.                                               |
+| `GOOGLE_CLIENT_SECRET` | To use Google | —                 | Backend OAuth secret.                                                       |
 
-El callback local de ejemplo es `http://localhost:3001/api/v1/auth/google/callback`. Debe
-coincidir con el registrado en Google. Las credenciales de Google son opcionales al arrancar;
-la estrategia se registra al utilizarla y falla explícitamente si no están configuradas.
+The local callback example is `http://localhost:3001/api/v1/auth/google/callback`; it must match Google's registration. Google credentials are optional at startup; the strategy is registered on use and fails explicitly if they are absent.
 
-CORS deriva un único origen con `new URL(FRONTEND_URL).origin`; no lee una lista
-`ADMIN_ALLOWED_ORIGINS`. El nonce OAuth se guarda en cookie HttpOnly, SameSite Lax, con Secure
-en producción. Las sesiones de Academy se entregan como JWT Bearer en JSON, no como cookie de
-sesión de Admin.
+CORS derives one origin with `new URL(FRONTEND_URL).origin`; it does not read `ADMIN_ALLOWED_ORIGINS`. OAuth nonce cookies are HttpOnly, SameSite Lax, and Secure in production. Academy sessions are JWT Bearer tokens in JSON, not Admin-style session cookies.
 
-Cambiar `JWT_SECRET` invalida tokens ya firmados. No colocar ese secreto ni credenciales de
-base/SMTP/AWS en `VITE_*`. Las rutas de frontend usadas por correo están en
-[endpoints](../src/constants/endpoints.ts): `/verificar-correo`, `/restablecer-contrasena` y
-`/oauth/callback` para los flujos correspondientes.
+Changing `JWT_SECRET` invalidates signed tokens. Never place it or database/SMTP/AWS credentials in `VITE_*`. Email frontend paths are defined in [endpoints](../src/constants/endpoints.ts): `/verificar-correo`, `/restablecer-contrasena`, and `/oauth/callback` for their respective flows.
 
-## Correo
+## Email
 
-| Variable          | Obligatoria | Default | Regla y uso                                              |
-| ----------------- | ----------- | ------- | -------------------------------------------------------- |
-| `EMAIL_TRANSPORT` | No          | `smtp`  | `smtp` en local y producción; `log` solo en tests        |
-| `EMAIL_FROM`      | Sí          | —       | Remitente, cadena no vacía                               |
-| `SMTP_HOST`       | Si `smtp`   | —       | Host SMTP, no vacío                                      |
-| `SMTP_PORT`       | No          | `587`   | Entero 1–65535                                           |
-| `SMTP_SECURE`     | No          | `false` | Texto literal `true`/`false`; TLS directo cuando es true |
-| `SMTP_USER`       | Si `smtp`   | —       | Usuario no vacío                                         |
-| `SMTP_PASSWORD`   | Si `smtp`   | —       | Contraseña no vacía                                      |
+| Variable          | Required    | Default              | Rule and purpose                                       |
+| ----------------- | ----------- | -------------------- | ------------------------------------------------------ |
+| `EMAIL_TRANSPORT` | No          | `smtp` outside tests | `smtp` in development/production; `log` only in tests. |
+| `EMAIL_FROM`      | Yes         | —                    | Nonempty sender string.                                |
+| `SMTP_HOST`       | With `smtp` | —                    | Nonempty SMTP host.                                    |
+| `SMTP_PORT`       | No          | `587`                | Integer 1–65535.                                       |
+| `SMTP_SECURE`     | No          | `false`              | Literal `true`/`false`; `true` enables direct TLS.     |
+| `SMTP_USER`       | With `smtp` | —                    | Nonempty user.                                         |
+| `SMTP_PASSWORD`   | With `smtp` | —                    | Nonempty password.                                     |
 
-El esquema exige host/usuario/contraseña para SMTP y rechaza `log` fuera de `NODE_ENV=test`.
-El remitente debe coincidir con `SMTP_USER` o ser un alias que autorice el proveedor. En Academy
-se puede reutilizar el servidor SMTP de Lawyer, configurando sus credenciales como `SMTP_USER` y
-`SMTP_PASSWORD` en cada entorno, sin exponerlas en el frontend. `verify()` de Nodemailer confirma
-la conexión y autenticación, pero la entrega final depende del servidor y del buzón de destino.
+The schema requires host/user/password for SMTP and rejects `log` outside `NODE_ENV=test`. The sender must match `SMTP_USER` or an alias authorized by the provider. Academy may reuse Lawyer's SMTP server by configuring its credentials independently in each environment, never exposing them to the frontend. Nodemailer's `verify()` checks connection/authentication; actual delivery depends on the server and destination mailbox.
 
-Registro tolera errores de entrega, conserva cuenta/sesión y devuelve
-`verification_email_sent: false` para mostrar reenvío inmediato. Recuperación inicia el envío sin
-esperarlo, con la respuesta protegida por un suelo de tiempo. El aviso de cambio de contraseña
-también registra el fallo sin deshacer el cambio. No hay cola ni worker de correo.
+Registration tolerates delivery failures, preserves account/session, and returns `verification_email_sent: false` for immediate resending. Recovery starts delivery without waiting and protects the response with a timing floor. Password-change notifications log failure without undoing the change. There is no email queue or email worker.
 
-## Almacenamiento
+## Storage
 
-La validación de estas variables está en [storage_env](../src/config/storage_env.ts).
+Validation lives in [storage_env](../src/config/storage_env.ts). With `STORAGE_DRIVER=s3`, product names take precedence over generic aliases:
 
-Con `STORAGE_DRIVER=s3`, los nombres de producto tienen prioridad sobre los genéricos:
-
-| Nombre de producto                            | Alias genérico interno        |
+| Product name                                  | Internal generic alias        |
 | --------------------------------------------- | ----------------------------- |
 | `S3_ACADEMY_PRODUCT_BUCKET`                   | `AWS_S3_BUCKET`               |
 | `CDN_ACADEMY_PRODUCT_BASE_URL`                | `STORAGE_PUBLIC_URL`          |
@@ -120,78 +85,56 @@ Con `STORAGE_DRIVER=s3`, los nombres de producto tienen prioridad sobre los gen�
 | `CLOUDFRONT_ACADEMY_PRODUCT_PRIVATE_KEY_PATH` | `CLOUDFRONT_PRIVATE_KEY_PATH` |
 | `CLOUDFRONT_SIGNED_URL_TTL_SECONDS`           | `CLOUDFRONT_URL_TTL_SECONDS`  |
 
-Con local, esas variables no sustituyen la URL de `/files`. Las subidas nuevas de portadas y
-avatares usan `/public/` sin firma; los recursos usan `/private/` y URLs firmadas.
+With the local driver, product variables do not replace the `/files` URL. New covers/avatars use unsigned `/public/`; resources use `/private/` and signed URLs.
 
-| Variable                      | Obligatoria             | Default                       | Regla y uso                                                          |
-| ----------------------------- | ----------------------- | ----------------------------- | -------------------------------------------------------------------- |
-| `STORAGE_DRIVER`              | No                      | `local`                       | `local` o `s3`, ambos implementados                                  |
-| `STORAGE_LOCAL_PATH`          | No                      | `storage`                     | Carpeta local persistente                                            |
-| `STORAGE_PUBLIC_URL`          | Si `s3`                 | `http://localhost:3001/files` | En S3, base CDN HTTPS sin credenciales, query ni fragmento           |
-| `AWS_REGION`                  | Si `s3`                 | —                             | Región del bucket                                                    |
-| `AWS_S3_BUCKET`               | Si `s3`                 | —                             | Nombre del bucket, no dominio                                        |
-| `AWS_ACCESS_KEY_ID`           | No                      | —                             | Con secret, o ambas ausentes para IAM/default credential chain       |
-| `AWS_SECRET_ACCESS_KEY`       | Si se define access key | —                             | Siempre el par completo                                              |
-| `AWS_SESSION_TOKEN`           | No                      | —                             | Token para credenciales temporales                                   |
-| `CLOUDFRONT_KEY_PAIR_ID`      | Si `s3`                 | —                             | ID de clave pública del grupo confiable, no ID de grupo/distribución |
-| `CLOUDFRONT_PRIVATE_KEY`      | Una fuente si `s3`      | —                             | PEM RSA 2048 inline, admite saltos escapados                         |
-| `CLOUDFRONT_PRIVATE_KEY_PATH` | Alternativa al inline   | —                             | Archivo PEM privado legible por el proceso                           |
-| `CLOUDFRONT_URL_TTL_SECONDS`  | No                      | `300`                         | Entero entre 1 y 86400                                               |
+| Variable                      | Required              | Default                       | Rule and purpose                                                             |
+| ----------------------------- | --------------------- | ----------------------------- | ---------------------------------------------------------------------------- |
+| `STORAGE_DRIVER`              | No                    | `local`                       | `local` or `s3`; both implemented.                                           |
+| `STORAGE_LOCAL_PATH`          | No                    | `storage`                     | Persistent local directory.                                                  |
+| `STORAGE_PUBLIC_URL`          | With `s3`             | `http://localhost:3001/files` | HTTPS CDN base without credentials, query, or fragment for S3.               |
+| `AWS_REGION`                  | With `s3`             | —                             | Bucket region.                                                               |
+| `AWS_S3_BUCKET`               | With `s3`             | —                             | Bucket name, not a domain.                                                   |
+| `AWS_ACCESS_KEY_ID`           | No                    | —                             | Pair with secret, or omit both for IAM/default credential chain.             |
+| `AWS_SECRET_ACCESS_KEY`       | With access key       | —                             | Always configure the complete pair.                                          |
+| `AWS_SESSION_TOKEN`           | No                    | —                             | Temporary credential token.                                                  |
+| `CLOUDFRONT_KEY_PAIR_ID`      | With `s3`             | —                             | Public key ID in the trusted group, not group/distribution ID.               |
+| `CLOUDFRONT_PRIVATE_KEY`      | One source with `s3`  | —                             | Inline RSA 2048 PEM; escaped newlines supported.                             |
+| `CLOUDFRONT_PRIVATE_KEY_PATH` | Alternative to inline | —                             | Private PEM file mounted outside the repository and readable by the process. |
+| `CLOUDFRONT_URL_TTL_SECONDS`  | No                    | `300`                         | Integer 1–86400.                                                             |
 
-Con S3, configurar exactamente una fuente de PEM. El arranque rechaza una configuración
-incompleta, un PEM ilegible/inválido o una clave que no sea RSA 2048. No hay fallback público.
-El comportamiento `/private/*` debe exigir URLs firmadas y usar el grupo confiable;
-`/public/*` permite lectura sin firma; el origen S3 permanece
-privado con OAC. Los fallos de operación producen `503 STORAGE_UNAVAILABLE`.
+With S3, configure exactly one PEM source. Startup rejects incomplete configuration, unreadable/invalid PEM, or non-RSA-2048 keys. There is no public fallback. `/private/*` must require signed URLs and use the trusted key group; `/public/*` allows unsigned reads. The S3 origin remains private with OAC. Operation failures return `503 STORAGE_UNAVAILABLE`.
 
-La DB conserva URL canónica y clave. Las respuestas renuevan la firma desde la clave usando
-el dominio vigente, sin persistir enlaces temporales. Filas sin clave conservan su URL original.
-Antes de cambiar de driver, migrar bytes manteniendo claves y revisar filas legacy. Ver
-[STORAGE](STORAGE.md) para permisos, caducidad, caché y comprobaciones reales.
+The database stores canonical URLs and keys. Responses renew signatures from keys using the current domain without persisting temporary links. Keyless rows retain their original URL. Before changing drivers, migrate bytes under unchanged keys and review legacy rows. [STORAGE](STORAGE.md) covers permissions, expiration, caching, cleanup retries, and real checks.
 
-## Video y reportes administrativos
+## Video and administrative reporting
 
-| Variable                       | Obligatoria      | Default                                                  | Regla y uso                                                                              |
-| ------------------------------ | ---------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `VIDEO_PROVIDER_DRIVER`        | No               | `fake` fuera de producción; `live` en producción         | `live`, `fake` o `vimeo`; `vimeo` es alias heredado del modo live para ambos proveedores |
-| `VIDEO_PROBE_TIMEOUT_MS`       | No               | `3000`                                                   | Entero positivo para timeout de oEmbed                                                   |
-| `REPORTING_UTC_OFFSET_MINUTES` | No               | `-300`                                                   | Entero; offset fijo para fechas de reportes, Lima por defecto                            |
-| `ADMIN_EXPORT_MAX_ROWS`        | No               | `50000`                                                  | Entero positivo; tope del CSV de usuarios                                                |
-| `NOTIFICATIONS_IP_HASH_SALT`   | Sí en producción | `local-notifications-salt-change-me` fuera de producción | Mínimo 16 caracteres; producción rechaza el default de desarrollo                        |
+| Variable                       | Required      | Default                                                 | Rule and purpose                                                                    |
+| ------------------------------ | ------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `VIDEO_PROVIDER_DRIVER`        | No            | `fake` outside production; `live` in production         | `live`, `fake`, or `vimeo`; `vimeo` is a legacy live-mode alias for both providers. |
+| `VIDEO_PROBE_TIMEOUT_MS`       | No            | `3000`                                                  | Positive integer for the oEmbed timeout.                                            |
+| `REPORTING_UTC_OFFSET_MINUTES` | No            | `-300`                                                  | Integer fixed reporting offset; Lima by default.                                    |
+| `ADMIN_EXPORT_MAX_ROWS`        | No            | `50000`                                                 | Positive integer; user CSV limit.                                                   |
+| `NOTIFICATIONS_IP_HASH_SALT`   | In production | `local-notifications-salt-change-me` outside production | At least 16 characters; production rejects the development default.                 |
 
-El default de video se determina al cargar el esquema usando `process.env.NODE_ENV`.
-No hace falta una clave API YouTube: el adaptador usa oEmbed, que no devuelve duración; el editor
-debe enviar segundos positivos. El modo fake puede seleccionarse explícitamente incluso en
-producción y no prueba disponibilidad real.
+The video default is determined at schema loading from `process.env.NODE_ENV`. YouTube requires no API key: the adapter uses oEmbed, which omits duration, so the editor must send positive seconds. Fake mode can still be explicitly selected in production; it does not verify real availability. Configure `live` for a release.
 
-El offset de reportes no es una zona IANA ni cambia automáticamente por horario de verano.
-Con `-300`, el inicio de un día Lima es `05:00:00Z`. `ADMIN_EXPORT_MAX_ROWS` no limita el CSV
-de avisos. La sal se usa para hashear IP en avisos/temas; no cambia el almacenamiento de IP de
-sesiones de autenticación. Evitar describir toda la aplicación como libre de IP en claro.
+The reporting offset is not an IANA zone and does not adjust for daylight saving. At `-300`, the start of a Lima day is `05:00:00Z`. `ADMIN_EXPORT_MAX_ROWS` does not limit notification CSV. The salt hashes IPs in notification/topic records, not authentication session IPs; the application is not entirely free of clear IP storage.
 
-## Semilla de desarrollo
+## Development seed
 
-| Variable                | Obligatoria para `pnpm seed` | Regla                                       |
-| ----------------------- | ---------------------------- | ------------------------------------------- |
-| `SEED_ADMIN_EMAIL`      | Sí                           | Email válido de la cuenta ADMIN de prueba   |
-| `SEED_ADMIN_PASSWORD`   | Sí                           | Mínimo 8 caracteres                         |
-| `SEED_STUDENT_EMAIL`    | Sí                           | Email válido de la cuenta STUDENT de prueba |
-| `SEED_STUDENT_PASSWORD` | Sí                           | Mínimo 8 caracteres                         |
+| Variable                | Required for `pnpm seed` | Rule                                      |
+| ----------------------- | ------------------------ | ----------------------------------------- |
+| `SEED_ADMIN_EMAIL`      | Yes                      | Valid email for the test ADMIN account.   |
+| `SEED_ADMIN_PASSWORD`   | Yes                      | At least 8 characters.                    |
+| `SEED_STUDENT_EMAIL`    | Yes                      | Valid email for the test STUDENT account. |
+| `SEED_STUDENT_PASSWORD` | Yes                      | At least 8 characters.                    |
 
-La semilla valida estas cuatro variables en [seed_env](../src/seed/seed_env.ts) sin defaults de
-credenciales, y aborta con `NODE_ENV=production`. Actualiza contraseñas/roles de las cuentas
-sembradas y el contenido identificado por slugs; elimina lecciones ajenas al fixture en esos
-cursos y reconstruye sus recursos. No es una herramienta de bootstrap productivo ni una carga
-que preserve cualquier edición local. Usarla únicamente sobre datos de desarrollo controlados.
-También añade los avisos y solicitudes de tema de ejemplo que falten, sin reiniciar los estados
-de notificación ni incrementar de nuevo los contadores de solicitudes existentes.
+The seed validates these values in [seed_env](../src/seed/seed_env.ts) without credential defaults and aborts in production. It updates seeded account passwords/roles and slug-identified content, deletes lessons outside the fixture in those courses, and rebuilds resources. It is not a production bootstrap tool or a load that preserves every local edit. Use only controlled development data.
 
-## Constantes que no son variables
+It also inserts missing sample notification/topic requests without resetting notification states or incrementing existing counters again. The sample `automatiza-tus-escritos` exam deliberately uses A as every correct option for development flow checks; sample questions are not production exam content.
 
-TTL de sesión/token, cooldowns, rate limits, límites de campos, tipos de archivo y códigos de
-error viven en `src/constants`. La duración de sesión es 30 días o 12 horas por inactividad y
-180 días absolutos; reenvío espera 45 segundos. Cambiarlos modifica contrato y pruebas.
+## Constants that are not environment variables
 
-El límite de JSON, proxy y watchdog viven en `ServerPolicy`. No documentar como configurables
-opciones ausentes del schema. Si se añade una variable, actualizar esta guía, `.env.example`,
-la validación y el procedimiento de despliegue en la misma entrega.
+Session/token TTLs, cooldowns, rate limits, field/file limits, and error codes live in `src/constants`. Sessions have 30-day/12-hour inactivity windows and a 180-day absolute cap; resending waits 45 seconds. Changing these alters contracts and tests.
+
+JSON limits, proxy trust, and shutdown watchdog live in `ServerPolicy`; do not document absent schema options as configurable. Adding a variable must update this guide, validation, Infisical configuration, and deployment instructions in the same release.

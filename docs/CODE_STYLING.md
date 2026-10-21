@@ -1,74 +1,46 @@
-# Estilo de código
+# Code style
 
-Academy comparte la separación de responsabilidades de Admin y Lawyer. Las convenciones se
-aplican a su configuración real: TypeScript estricto, módulos CommonJS y aliases `@/`.
-Fuentes: [tsconfig](../tsconfig.json), [ESLint](../eslint.config.mjs),
-[Prettier](../.prettierrc) y [dependency-cruiser](../.dependency-cruiser.cjs).
+Academy shares Admin and Lawyer's separation of responsibilities. These conventions apply to its actual configuration: strict TypeScript, CommonJS modules, and `@/` aliases. Sources: [tsconfig](../tsconfig.json), [ESLint](../eslint.config.mjs), [Prettier](../.prettierrc), and [dependency-cruiser](../.dependency-cruiser.cjs).
 
-## Organización y nombres
+## Organization and naming
 
-- La unidad preferida es `modules/<module>/features/<feature>/<action>/` con `domain`,
-  `presentation`, `data` cuando tiene persistencia propia, `docs/README.md` y `test`.
-- Carpetas y archivos usan `snake_case`: `get_list`, `update_password`, `course_mapper`.
-  Los archivos de acción llevan su capa: `register.schema.ts`, `register.service.ts`,
-  `register.controller.ts`, `register.routes.ts` y `register.repository.ts`.
-- Tipos, interfaces y schemas exportados siguen el nombre existente en su unidad; funciones
-  y variables usan `camelCase`. Los campos persistidos y los DTO HTTP usan `snake_case`.
-- Usar exports con nombre e imports directos. El código actual importa `@/utils/errors`, sin
-  añadir `.js`: el build CommonJS reescribe los aliases con `tsc-alias`.
-- `modules/<module>/shared` publica datos, dominio y políticas usados por varias features.
-  No importar la implementación privada de otro módulo ni crear un contenedor global de negocio.
+- Prefer `modules/<module>/features/<feature>/<action>/` with `domain`, `presentation`, `data` when it owns persistence, `docs/README.md`, and `test`.
+- Use `snake_case` directories/files: `get_list`, `update_password`, `course_mapper`. Action filenames include their layer: `register.schema.ts`, `register.service.ts`, `register.controller.ts`, `register.routes.ts`, and `register.repository.ts`.
+- Exported types, interfaces, and schemas follow their unit's existing names; functions and variables use `camelCase`. Persisted fields and HTTP DTOs use `snake_case`.
+- Use named exports and direct imports. Current code imports `@/utils/errors` without `.js`; the CommonJS build rewrites aliases through `tsc-alias`.
+- `modules/<module>/shared` exposes data, domain, and policies used by multiple features. Do not import another module's private implementation or create a global business-logic container.
 
-Algunas features administrativas agrupan acciones en un único controller/service. Es deuda
-estructural existente, no el patrón recomendado para nuevas acciones. Separarlas requiere
-conservar sus rutas y contratos; esta actualización documental no hace esa refactorización.
+Some administrative features group actions in one controller/service. This is existing structural debt, not the recommended pattern for new actions. Splitting them must preserve routes and contracts; documentation changes do not perform that refactor.
 
-## Responsabilidades
+## Responsibilities
 
-| Pieza          | Responsabilidad                                                                        |
-| -------------- | -------------------------------------------------------------------------------------- |
-| Router         | Encadenar autenticación, autorización, límites, multipart y controller                 |
-| Controller     | Obtener identidad del servidor, validar entradas, invocar el service y traducir a HTTP |
-| Service        | Aplicar reglas y coordinar repositorios/puertos con datos tipados, sin Express         |
-| Repository     | Consultas, selects, orden y escrituras transaccionales de su dominio                   |
-| Domain/policy  | Schemas, payloads, mappers y reglas puras                                              |
-| Infrastructure | Criptografía, correo, almacenamiento y adaptadores externos                            |
+| Component      | Responsibility                                                                   |
+| -------------- | -------------------------------------------------------------------------------- |
+| Router         | Chain authentication, authorization, limits, multipart, and controller.          |
+| Controller     | Obtain server identity, validate input, call the service, and translate to HTTP. |
+| Service        | Apply rules and coordinate repositories/ports with typed data, without Express.  |
+| Repository     | Queries, selects, ordering, and transactional writes for its domain.             |
+| Domain/policy  | Schemas, payloads, mappers, and pure rules.                                      |
+| Infrastructure | Cryptography, email, storage, and external adapters.                             |
 
-Los controllers asíncronos dejan subir los errores al manejador de Express 5. Un `try/catch`
-solo se justifica para una recuperación concreta: conflicto único, limpieza de un archivo o
-fallo tolerado de correo. No repetir el manejador HTTP dentro de cada slice.
+Async controllers let errors propagate to Express 5's handler. A `try/catch` is justified only for a concrete recovery: unique conflict, file cleanup, or tolerated email failure. Do not duplicate HTTP error handling in every slice.
 
-## Tipos, validación y seguridad del contrato
+## Types, validation, and contract security
 
-TypeScript es estricto. Evitar `any`, `@ts-ignore` y casts que oculten un contrato desconocido;
-validar datos externos antes de utilizarlos. Inferir payloads desde Zod y construir DTOs con
-selects y mappers explícitos, sin devolver filas completas de Prisma.
+TypeScript is strict. Avoid `any`, `@ts-ignore`, and casts that hide unknown contracts; validate external data before using it. Infer payloads from Zod and build DTOs with explicit selects/mappers instead of returning complete Prisma rows.
 
-Los schemas existentes suelen usar `z.object`, que elimina claves desconocidas. No describirlos
-como estrictos ni prometer rechazo de campos extra sin usar y probar esa configuración. En
-perfil, el controller construye los campos permitidos y toma `user_id` de la sesión.
+Existing schemas usually use `z.object`, which strips unknown keys. Do not describe them as strict or promise rejection of extra fields without configuring and testing that behavior. Profile controllers build the permitted fields and obtain `user_id` from the session.
 
-Las contraseñas se conservan exactamente, sin trim ni normalización. El correo se normaliza con
-la utilidad/schema de email; la búsqueda sin acentos usa su normalizador específico. El HTML
-de un artículo se sanea con su política; el comentario se trata como texto plano.
+Passwords are preserved exactly, without trimming or normalization. Email uses its utility/schema; accent-insensitive search uses its own normalizer. Article HTML is sanitized by policy; comments are plain text.
 
-## Respuestas y errores
+## Responses and errors
 
-Usar `HttpStatusCodes`, constantes de mensajes y `ErrorCodes`. El contrato JSON pasa por
-`buildHttpResponse({ status, description, path, data?, meta? })`; la decisión del cliente usa
-`meta.code`, y la validación de campos usa claves i18n en `meta.fields`.
+Use `HttpStatusCodes`, message constants, and `ErrorCodes`. JSON responses go through `buildHttpResponse({ status, description, path, data?, meta? })`; clients decide from `meta.code`, and field validation uses i18n keys in `meta.fields`.
 
-Los errores esperados usan `AppError`; admite `data` para detalles de confirmación. La lección
-bloqueada es un resultado tipado que el controller traduce a `403` con datos públicos. CSV,
-redirecciones OAuth y respuestas `204` conservan su transporte específico.
+Expected errors use `AppError`, with optional `data` for confirmation details. Locked lessons are a typed result translated by the controller into `403` with public data. CSV, OAuth redirects, and `204` retain their specific transports.
 
-## Formato, pruebas y documentación
+## Formatting, tests, and documentation
 
-Dos espacios, punto y coma, comillas simples, ancho 100, coma final y LF. No usar `console.log`
-en runtime. Las explicaciones de decisiones viven en Markdown junto a la unidad y en
-[DECISIONS](DECISIONS.md), con enlaces a código real.
+Use two spaces, semicolons, single quotes, a 100-column width, trailing commas, and LF. No runtime `console.log`. Explain decisions in Markdown beside the unit and in [DECISIONS](DECISIONS.md), linking to real code.
 
-Los tests de slice viven junto al código; las integraciones PostgreSQL en `tests/integration`.
-Mockear el especificador exacto que importa la implementación. Las comprobaciones están en
-[TESTING](TESTING.md). Al cambiar un contrato, actualizar API, variables si corresponde, el
-README del área y la entrega semanal; no sustituir evidencia por una afirmación de «listo».
+Slice tests live beside code; PostgreSQL integrations live under `tests/integration`. Mock the exact specifier imported by the implementation. Checks are documented in [TESTING](TESTING.md). Contract changes must update API documentation, relevant variables, the area README, and weekly release notes. Evidence cannot be replaced by a “ready” claim.

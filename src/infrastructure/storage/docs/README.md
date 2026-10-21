@@ -42,6 +42,25 @@ fuente de clave privada al activar S3; valida el par opcional de credenciales AW
 El adaptador carga y valida el PEM al construirse. Un PEM inválido impide el inicio.
 Errores de operación AWS o de firma devuelven `503 STORAGE_UNAVAILABLE`, sin detalles sensibles.
 
+## Limpieza tras borrados y reemplazos
+
+[cleanup](../cleanup.ts) elimina objetos que dejan de usarse y
+[cleanup.repository](../cleanup.repository.ts) mantiene la cola persistida en PostgreSQL.
+Los triggers instalados por `20261021030000_storage_deletions` capturan las claves anteriores
+al borrar o sustituir recursos, portadas y avatares; incluyen cascadas y respetan rollbacks.
+Los services intentan la limpieza inmediatamente y el servidor recupera lo pendiente al iniciar
+y cada 30 segundos. La reserva de dos minutos se recupera si muere un proceso; los fallos se
+reintentan con espera creciente, sin perder el trabajo tras reiniciar.
+
+Antes de `remove` se comprueban referencias en los tres tipos de archivo. No se deducen claves
+de URLs externas, no se eliminan objetos aún compartidos y archivar un curso conserva su contenido.
+Las compensaciones de subidas fallidas usan la misma cola si la DB permite registrarlas.
+El despliegue debe aplicar la migración, no solo generar el cliente o ejecutar `db push`.
+
+[storage_cleanup_flow](../../../../tests/integration/postgres/storage_cleanup_flow.test.ts)
+comprueba con PostgreSQL y filesystem reales las cascadas, referencias compartidas, sustituciones,
+fallos recuperables, reservas entre workers y rollbacks en una base desechable.
+
 ## Evidencia
 
 [test](../test/) cubre filesystem, validación de subidas, comandos S3, claves inseguras,

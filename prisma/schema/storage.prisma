@@ -1,0 +1,9 @@
+model storage_deletions {
+  file_key        String   @id
+  attempts        Int      @default(0)
+  next_attempt_at DateTime @default(now())
+  lease_token     String?
+  created_at      DateTime @default(now())
+
+  @@index([next_attempt_at, created_at])
+}

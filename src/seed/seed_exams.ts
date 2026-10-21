@@ -3,7 +3,7 @@ import { ExamPolicy } from '@/constants/exams';
 import { SystemMessages } from '@/constants/messages/system';
 import { examQuestionsSchema } from '@/modules/progress/shared/domain/exam.schema';
 import { buildSeedCourses } from '@/seed/seed_courses';
-import { seedExamQuestions } from '@/seed/seed_exam_questions';
+import { seedExamFixedCorrectOptions, seedExamQuestions } from '@/seed/seed_exam_questions';
 
 interface SeedExamCourse {
   id: string;
@@ -27,7 +27,8 @@ export const buildSeedExams = () =>
     }
 
     const questions = drafts.map(([text, correct, ...incorrect], index) => {
-      const correct_option = index % ExamPolicy.option_count;
+      const correct_option =
+        seedExamFixedCorrectOptions[course.slug] ?? index % ExamPolicy.option_count;
       const options = [...incorrect];
       options.splice(correct_option, 0, correct);
       return { text, options, correct_option };

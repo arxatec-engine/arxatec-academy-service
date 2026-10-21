@@ -1,6 +1,5 @@
 import type { z } from 'zod';
 
-import { logger } from '@/config/logger';
 import { AdminCoursePolicy, CoursePolicy } from '@/constants/courses';
 import { ErrorCodes } from '@/constants/error_codes';
 import { FileUsages } from '@/constants/files';
@@ -9,6 +8,7 @@ import { AdminCourseMessages } from '@/constants/messages/admin_courses';
 import { ValidationKeys } from '@/constants/validation_keys';
 import { course_status } from '@/generated/enums';
 import { resolveStoredFileUrl } from '@/infrastructure/storage/file_url';
+import { removeStoredFile } from '@/infrastructure/storage/cleanup';
 import { storage } from '@/infrastructure/storage/storage';
 import { buildStorageKey } from '@/infrastructure/storage/storage_key';
 import { validateUpload } from '@/infrastructure/storage/validate_upload';
@@ -231,15 +231,9 @@ export const updateAdminCourseCoverService = async (id: string, file: UploadedFi
   try {
     await updateAdminCourseState(id, { cover_image_url: stored.url, cover_image_key: stored.key });
   } catch (error) {
-    await storage.remove(stored.key);
+    await removeStoredFile(stored.key);
     throw error;
   }
-  if (current.cover_image_key !== null) {
-    try {
-      await storage.remove(current.cover_image_key);
-    } catch (error) {
-      logger.warn({ err: error, course_id: id }, AdminCourseMessages.cover_remove_failed);
-    }
-  }
+  await removeStoredFile(current.cover_image_key);
   return getAdminCourseService(id);
 };

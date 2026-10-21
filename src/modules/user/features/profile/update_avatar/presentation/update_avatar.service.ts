@@ -1,4 +1,5 @@
 import { FileUsages } from '@/constants/files';
+import { removeStoredFile } from '@/infrastructure/storage/cleanup';
 import { resolveStoredFileUrl } from '@/infrastructure/storage/file_url';
 import { storage } from '@/infrastructure/storage/storage';
 import { buildStorageKey } from '@/infrastructure/storage/storage_key';
@@ -34,11 +35,17 @@ export const updateAvatarService = async (
     mime_type: validated.mime_type,
   });
 
-  const user = await setUserAvatar({
-    user_id: command.user_id,
-    avatar_url: stored.url,
-    avatar_key: stored.key,
-  });
+  let user: Awaited<ReturnType<typeof setUserAvatar>>;
+  try {
+    user = await setUserAvatar({
+      user_id: command.user_id,
+      avatar_url: stored.url,
+      avatar_key: stored.key,
+    });
+  } catch (error) {
+    await removeStoredFile(stored.key);
+    throw error;
+  }
 
   await removeStoredAvatar(previous.avatar_key);
 

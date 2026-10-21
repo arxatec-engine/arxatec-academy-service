@@ -1,86 +1,55 @@
-# Cursos: catálogo y administración editorial
+# Courses: catalog and editorial administration
 
-**Estado:** implementado. [Catálogo](../../../src/modules/courses/features/catalog/docs/README.md) ·
-[Editor](../../../src/modules/courses/features/admin_courses/docs/README.md) · [Índice](../README.md).
+**Status:** implemented. [Catalog](../../../src/modules/courses/features/catalog/docs/README.md) · [Editor](../../../src/modules/courses/features/admin_courses/docs/README.md) · [Index](../README.md).
 
-## Datos y selección
+## Data and selection
 
-`courses` guarda slug, título, descripciones, tema, nivel, portada, estado, orden y fechas.
-El DTO del catálogo omite el id interno y la descripción larga; la ficha devuelve descripción
-larga y totales de contenido. El temario publica `lesson.id` para operaciones de aprendizaje.
-No se entrega contenido de borradores por un endpoint público.
+`courses` stores slug, title, descriptions, topic, level, cover, state, order, and dates. Catalog DTOs omit internal ID and long description; details include long description/content totals. Syllabuses expose `lesson.id` for learning operations. Public endpoints do not return draft content.
 
-Temas: FIRST_STEPS, LEGAL_ENGINEERING, APPLIED_AI y ARXATEC_PRODUCT. Niveles: INTRODUCTORY e
-INTERMEDIATE. El estado editorial es DRAFT, PUBLISHED o ARCHIVED. Publicación y archivo se
-resuelven mediante comandos, no aceptando un estado arbitrario en el PATCH.
+Topics: FIRST_STEPS, LEGAL_ENGINEERING, APPLIED_AI, ARXATEC_PRODUCT. Levels: INTRODUCTORY, INTERMEDIATE. Editorial states are DRAFT, PUBLISHED, ARCHIVED. Commands handle publication/archive rather than accepting arbitrary status through PATCH.
 
-## Catálogo público
+## Public catalog
 
-`GET /api/v1/courses` acepta `topic`, `level` y `search`. Los enums permiten valores repetidos
-o separados por coma; búsqueda recorta espacios, toma el primer valor y limita a 120 caracteres.
-Busca sin distinguir mayúsculas/acentos sobre título y descripción corta. La lista se ordena
-por `catalog_order` y no está paginada.
+`GET /api/v1/courses` accepts topic, level, and search. Enums accept repeated/comma-separated values; search trims, uses the first value, and is limited to 120 characters. Title/short-description search ignores case/accents. Results use catalog_order and are not paginated.
 
-Respuesta `data: { courses, facets }`. Cada tarjeta tiene slug, título, descripción corta, tema,
-nivel, portada nullable, `lesson_count` y `total_duration_seconds`. Las facetas de tema incluyen
-ALL y las cuatro claves; las de nivel incluyen las dos claves incluso cuando cuentan cero.
+Returns `data: { courses, facets }`. Cards include slug, title, short description, topic, level, nullable cover, lesson_count, and total_duration_seconds. Topic facets include ALL and four topic keys; level facets include both keys, even at zero.
 
-| Faceta             | Aplica               | Omite            |
+| Facet              | Applies              | Omits            |
 | ------------------ | -------------------- | ---------------- |
-| `facets.topic`     | Nivel                | Tema y búsqueda  |
-| `facets.level`     | Tema                 | Nivel y búsqueda |
-| `facets.topic.ALL` | Nivel; suma de temas | Tema y búsqueda  |
+| `facets.topic`     | Level                | Topic and search |
+| `facets.level`     | Topic                | Level and search |
+| `facets.topic.ALL` | Level; sum of topics | Topic and search |
 
-Un resultado vacío es 200. `GET /courses/:slug` devuelve `{ course, lessons }` publicado y
-`is_unlocked` según muestra/sesión, sin exigir inscripción. Totales se agregan sobre lecciones
-publicadas y mezclan segundos de video con minutos de artículo convertidos a segundos.
+Empty results return 200. `GET /courses/:slug` returns published `{ course, lessons }` and is_unlocked based on sample/session without enrollment. Totals use published lessons, combining video seconds and article minutes converted to seconds.
 
-## Editor: contratos y campos
+## Editor contracts and fields
 
-Todas las rutas `/api/v1/admin/courses` exigen sesión activa y rol ADMIN.
+All `/api/v1/admin/courses` routes require active sessions and ADMIN.
 
-| Acción               | Entrada                                       | Resultado                                                   |
-| -------------------- | --------------------------------------------- | ----------------------------------------------------------- |
-| Listar               | Sin filtros/paginación implementados          | courses y counts globales por estado                        |
-| Crear                | title, topic, level; descripciones opcionales | 201 con course y lessons; borrador con slug generado        |
-| Leer                 | id                                            | course y lessons de editor, incluidos borradores            |
-| Autoguardar          | expected_updated_at más campos permitidos     | 200 con nueva fecha o 409 STALE_UPDATE                      |
-| Publicar/despublicar | id, POST al comando                           | Ficha actualizada                                           |
-| Duplicar             | id                                            | 201; título con sufijo, slug propio y contenido en borrador |
-| Archivar             | id                                            | Ficha ARCHIVED, conserva aprendizaje                        |
-| Reordenar            | course_ids completos                          | Lista administrativa actualizada                            |
-| Portada              | Multipart file                                | Ficha con URL de portada                                    |
+| Action            | Input                                      | Result                                        |
+| ----------------- | ------------------------------------------ | --------------------------------------------- |
+| List              | No implemented filters/pagination          | courses and global state counts.              |
+| Create            | title, topic, level; optional descriptions | 201 course/lessons, draft, generated slug.    |
+| Read              | id                                         | Editor course/lessons including drafts.       |
+| Autosave          | expected_updated_at and allowed fields     | 200 with new date or 409 STALE_UPDATE.        |
+| Publish/unpublish | id, command POST                           | Updated details.                              |
+| Duplicate         | id                                         | 201, suffixed title, own slug, draft content. |
+| Archive           | id                                         | ARCHIVED, retaining learning/files.           |
+| Reorder           | Complete course_ids                        | Updated administrative list.                  |
+| Cover             | Multipart file                             | Details with cover URL.                       |
 
-Título máximo 140; slug y slug generado máximo 160; descripción corta máximo 140. PATCH permite
-título, slug, ambas descripciones, tema, nivel y `catalog_order` positivo. El cuerpo exige
-`expected_updated_at` ISO; la escritura condicionada compara ese instante. Campos y movimiento
-de orden se agrupan cuando se envían juntos.
+Title max 140; slug/generated slug max 160; short description max 140. PATCH permits title, slug, both descriptions, topic, level, positive catalog_order, and teacher assignment. It requires ISO expected_updated_at; conditional writes compare that instant. Field updates and ordering movement share a transaction when sent together. Teacher input can create/update/assign a reusable profile or unassign with null.
 
-El DTO de editor incluye `slug_locked`, `can_publish`, `updated_at` y `published_at`.
-`can_publish` solo refleja el mínimo de lecciones publicadas; no certifica las descripciones,
-que el comando valida aparte. Las claves de almacenamiento no forman parte del DTO público.
+Editor DTOs include slug_locked, can_publish, updated_at, and published_at. can_publish reflects only the published-lesson minimum, not description validity; commands validate descriptions separately. Storage keys are excluded from public DTOs.
 
-## Transiciones e invariantes
+## Transitions and invariants
 
-Publicar requiere al menos una lección publicada y ambas descripciones no vacías. Un archivado
-no se publica directamente; el comando de despublicar lo deja DRAFT y conserva `published_at`.
-Una vez sellada la primera publicación, el slug queda bloqueado incluso tras volver a borrador.
-Repetir publicación de un curso ya publicado devuelve su estado.
+Publication requires at least one published lesson and both descriptions nonempty. Archived courses cannot publish directly; unpublish returns DRAFT while retaining published_at. First publication locks the slug even after returning to draft. Repeated publication returns the existing state.
 
-El orden completo incluye cursos activos (DRAFT/PUBLISHED), sin archivados, y rechaza un conjunto
-obsoleto con `STALE_CATALOG_ORDER`. Archivar ajusta el catálogo sin borrar progreso. Duplicar
-copia lecciones y recursos, pero no inscripciones ni comentarios; puede compartir archivos
-mediante sus claves. La portada exige 1200 × 750 horizontal; límites en [archivos](../../STORAGE.md).
+Complete ordering includes active DRAFT/PUBLISHED courses, excludes archived courses, and rejects stale sets with STALE_CATALOG_ORDER. Archiving adjusts the catalog without deleting progress. Duplication copies lessons/resources, not enrollments/comments, and may share stored files by key. Covers require landscape 1200 × 750; limits are in [storage](../../STORAGE.md). Replacement durably queues detached cover keys for cleanup; archived content retains its files.
 
-## Consultas y aceptación
+## Queries and acceptance
 
-Los repositorios separados de público/editor viven en
-[courses/shared/data](../../../src/modules/courses/shared/data). La búsqueda de catálogo se
-normaliza en memoria y las facetas tienen consultas propias. No se debe paginar primero y
-recortar después; el crecimiento requiere revisar consulta e índices.
+Separate public/editor repositories live in [courses/shared/data](../../../src/modules/courses/shared/data). Catalog search normalizes in memory and facets have separate queries. Never paginate first and filter afterward; growth needs query/index review.
 
-[admin_courses_flow](../../../tests/integration/postgres/admin_courses_flow.test.ts) comprueba
-flujo, conflicto de fecha y estados; los unitarios cubren facetas/mappers. Aceptación: borradores
-ausentes del público, slug estable después de publicar, orden completo sin duplicados y archivo
-sin pérdida de aprendizaje. Los comandos agrupados mantienen pendiente su separación por acción;
-no tienen recibos idempotentes generales ni auditoría de contenido como Admin.
+[admin_courses_flow](../../../tests/integration/postgres/admin_courses_flow.test.ts) covers flows, timestamp conflicts, and states; unit tests cover facets/mappers. Acceptance: no public drafts, stable slugs after publication, complete order without duplicates, and archive without learning loss. Grouped commands still need per-action separation; there are no generic idempotent receipts or Admin-equivalent content auditing.

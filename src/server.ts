@@ -7,6 +7,7 @@ import { logger } from '@/config/logger';
 import { disconnectPrisma } from '@/config/prisma_client';
 import { SystemMessages } from '@/constants/messages/system';
 import { CloseableNames, ProcessEvents, ServerPolicy, ShutdownSignals } from '@/constants/server';
+import { startStorageCleanupWorker } from '@/infrastructure/storage/cleanup';
 
 interface Closeable {
   name: string;
@@ -72,6 +73,8 @@ const start = (): void => {
   });
 
   const app = createApp();
+  const storageCleanup = startStorageCleanupWorker();
+  registerCloseable({ name: CloseableNames.storage_cleanup, close: storageCleanup.close });
 
   const server = app.listen(env.PORT, () => {
     logger.info({ port: env.PORT, node_env: env.NODE_ENV }, SystemMessages.server_listening);

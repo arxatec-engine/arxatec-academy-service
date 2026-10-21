@@ -22,6 +22,7 @@ export const CloseableNames = {
   http_server: 'http_server',
   prisma: 'prisma',
   mail_transport: 'mail_transport',
+  storage_cleanup: 'storage_cleanup',
 } as const;
 
 export const ProcessEvents = {

@@ -119,6 +119,3 @@ export const reorderAdminResources = (lesson_id: string, ids: readonly string[])
     }
     return true;
   });
-export const countResourceFileReferences = (file_key: string) => prisma.lesson_resources.count({
-  where: { file_key },
-});

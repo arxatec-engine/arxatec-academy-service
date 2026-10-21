@@ -99,6 +99,14 @@ export const S3Policy = {
   request_timeout_ms: 15000,
 } as const;
 
+export const StorageCleanupPolicy = {
+  interval_ms: 30_000,
+  lease_ms: 120_000,
+  retry_delay_ms: 60_000,
+  max_retry_delay_ms: 3_600_000,
+  batch_size: 10,
+} as const;
+
 export const CloudFrontPolicy = {
   url_ttl_seconds: 300,
   max_url_ttl_seconds: 86400,
